@@ -1,5 +1,5 @@
 // =============================================
-// BAR CHART WITH SIZE MARK CARD - FULLY WORKING
+// BAR CHART WITH SIZE MARK CARD - FIXED VERSION
 // =============================================
 
 console.log('📦 Script loading...');
@@ -18,6 +18,7 @@ const CONFIG = {
 let chartData = [];
 let worksheet = null;
 let isTableauReady = false;
+let livePreview = true; // Enable live preview when sliding
 
 // =============================================
 // INITIALIZATION
@@ -29,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('config-btn').addEventListener('click', openSizeConfig);
     document.getElementById('refresh-btn').addEventListener('click', refreshChart);
     
-    // ✅ NEW: Create Size Mark Card
+    // Create Size Mark Card
     createSizeMarkCard();
     
     // Initialize Tableau or use test data
@@ -37,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =============================================
-// ✅ NEW: SIZE MARK CARD UI
+// SIZE MARK CARD UI - FIXED
 // =============================================
 function createSizeMarkCard() {
     console.log('🎨 Creating Size Mark Card...');
@@ -51,7 +52,13 @@ function createSizeMarkCard() {
         <div id="size-mark-card">
             <div class="mark-header">
                 <span style="font-weight: bold;">📏 Size Control</span>
-                <span class="status-badge" id="size-status">Ready</span>
+                <div class="header-controls">
+                    <label class="live-toggle">
+                        <input type="checkbox" id="live-preview-toggle" checked>
+                        <span>Live</span>
+                    </label>
+                    <span class="status-badge" id="size-status">Ready</span>
+                </div>
             </div>
             
             <div class="mark-body">
@@ -64,29 +71,37 @@ function createSizeMarkCard() {
                     <input type="range" class="size-slider" id="scale-slider" 
                            min="50" max="200" value="100" step="5">
                     <div class="control-labels">
-                        <span>Small</span>
-                        <span>Large</span>
+                        <span>50%</span>
+                        <span>100%</span>
+                        <span>200%</span>
                     </div>
-                    <div class="quick-buttons">
-                        <button class="quick-btn" onclick="quickSetScale(50)">50%</button>
-                        <button class="quick-btn" onclick="quickSetScale(75)">75%</button>
-                        <button class="quick-btn active" onclick="quickSetScale(100)">100%</button>
-                        <button class="quick-btn" onclick="quickSetScale(150)">150%</button>
-                        <button class="quick-btn" onclick="quickSetScale(200)">200%</button>
+                    <div class="quick-buttons" id="scale-quick-buttons">
+                        <button class="quick-btn" data-value="50">50%</button>
+                        <button class="quick-btn" data-value="75">75%</button>
+                        <button class="quick-btn active" data-value="100">100%</button>
+                        <button class="quick-btn" data-value="150">150%</button>
+                        <button class="quick-btn" data-value="200">200%</button>
                     </div>
                 </div>
                 
                 <!-- Chart Thickness Control -->
                 <div class="control-section special">
                     <div class="control-label">
-                        <span>📊 Chart Thickness</span>
+                        <span>📊 Bar Thickness</span>
                         <span class="control-value green" id="width-display">75%</span>
                     </div>
                     <input type="range" class="size-slider green" id="width-slider" 
                            min="10" max="100" value="75" step="1">
                     <div class="control-labels">
-                        <span>Very Thin</span>
-                        <span>Very Thick</span>
+                        <span>10%</span>
+                        <span>55%</span>
+                        <span>100%</span>
+                    </div>
+                    <div class="quick-buttons" id="width-quick-buttons">
+                        <button class="quick-btn" data-value="25">Thin</button>
+                        <button class="quick-btn" data-value="50">Medium</button>
+                        <button class="quick-btn active" data-value="75">Normal</button>
+                        <button class="quick-btn" data-value="90">Thick</button>
                     </div>
                     <p class="hint">💡 Controls thickness of ALL bars</p>
                 </div>
@@ -100,15 +115,17 @@ function createSizeMarkCard() {
                     <input type="range" class="size-slider purple" id="impact-slider" 
                            min="0" max="45" value="30" step="5">
                     <div class="control-labels">
+                        <span>0%</span>
                         <span>Uniform</span>
-                        <span>Varied</span>
+                        <span>45%</span>
                     </div>
+                    <p class="hint">💡 Higher = more width variation based on size data</p>
                 </div>
             </div>
             
             <div class="mark-footer">
-                <button class="mark-btn reset" onclick="resetSizeCard()">🔄 Reset</button>
-                <button class="mark-btn apply" onclick="applySizeCard()">✓ Apply</button>
+                <button class="mark-btn reset" id="reset-size-btn">🔄 Reset</button>
+                <button class="mark-btn apply" id="apply-size-btn">✓ Apply</button>
             </div>
         </div>
     `;
@@ -120,7 +137,7 @@ function createSizeMarkCard() {
                 position: fixed;
                 top: 10px;
                 right: 10px;
-                width: 280px;
+                width: 300px;
                 background: white;
                 border: 2px solid #4e79a7;
                 border-radius: 8px;
@@ -129,6 +146,7 @@ function createSizeMarkCard() {
                 font-size: 12px;
                 z-index: 9999;
                 animation: slideInRight 0.3s;
+                user-select: none;
             }
             
             @keyframes slideInRight {
@@ -147,12 +165,37 @@ function createSizeMarkCard() {
                 font-size: 13px;
             }
             
+            .header-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .live-toggle {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 10px;
+                cursor: pointer;
+            }
+            
+            .live-toggle input {
+                width: 14px;
+                height: 14px;
+                cursor: pointer;
+            }
+            
             .status-badge {
                 background: rgba(255,255,255,0.3);
                 padding: 2px 8px;
                 border-radius: 10px;
                 font-size: 10px;
                 font-weight: bold;
+                transition: all 0.3s;
+            }
+            
+            .status-badge.success {
+                background: #4caf50;
             }
             
             .mark-body {
@@ -163,10 +206,15 @@ function createSizeMarkCard() {
             
             .control-section {
                 margin-bottom: 15px;
-                padding: 10px;
+                padding: 12px;
                 background: #f8f9fa;
                 border-radius: 6px;
                 border: 1px solid #e0e0e0;
+                transition: all 0.2s;
+            }
+            
+            .control-section:hover {
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }
             
             .control-section.highlight {
@@ -188,9 +236,16 @@ function createSizeMarkCard() {
             }
             
             .control-value {
-                font-size: 20px;
+                font-size: 22px;
                 font-weight: 900;
                 color: #2196f3;
+                min-width: 60px;
+                text-align: right;
+                transition: transform 0.1s;
+            }
+            
+            .control-value.pulse {
+                transform: scale(1.1);
             }
             
             .control-value.green { color: #4caf50; }
@@ -198,55 +253,77 @@ function createSizeMarkCard() {
             
             .size-slider {
                 width: 100%;
-                height: 6px;
+                height: 8px;
                 -webkit-appearance: none;
-                background: #ddd;
-                border-radius: 3px;
+                appearance: none;
+                background: linear-gradient(to right, #ddd 0%, #2196f3 50%, #ddd 100%);
+                background-size: 100% 100%;
+                border-radius: 4px;
                 outline: none;
-                margin: 8px 0;
+                margin: 10px 0;
+                cursor: pointer;
             }
             
             .size-slider::-webkit-slider-thumb {
                 -webkit-appearance: none;
-                width: 18px;
-                height: 18px;
+                appearance: none;
+                width: 20px;
+                height: 20px;
                 background: #2196f3;
                 border-radius: 50%;
-                cursor: pointer;
-                border: 2px solid white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                transition: transform 0.1s;
+                cursor: grab;
+                border: 3px solid white;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                transition: transform 0.1s, box-shadow 0.1s;
             }
             
             .size-slider::-webkit-slider-thumb:hover {
+                transform: scale(1.15);
+                box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+            }
+            
+            .size-slider::-webkit-slider-thumb:active {
+                cursor: grabbing;
                 transform: scale(1.2);
             }
             
-            .size-slider.green::-webkit-slider-thumb {
-                background: #4caf50;
+            .size-slider::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: #2196f3;
+                border-radius: 50%;
+                cursor: grab;
+                border: 3px solid white;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             }
             
-            .size-slider.purple::-webkit-slider-thumb {
-                background: #9c27b0;
-            }
+            .size-slider.green { background: linear-gradient(to right, #ddd 0%, #4caf50 50%, #ddd 100%); }
+            .size-slider.green::-webkit-slider-thumb { background: #4caf50; }
+            .size-slider.green::-moz-range-thumb { background: #4caf50; }
+            
+            .size-slider.purple { background: linear-gradient(to right, #ddd 0%, #9c27b0 50%, #ddd 100%); }
+            .size-slider.purple::-webkit-slider-thumb { background: #9c27b0; }
+            .size-slider.purple::-moz-range-thumb { background: #9c27b0; }
             
             .control-labels {
                 display: flex;
                 justify-content: space-between;
                 font-size: 10px;
                 color: #888;
-                margin-top: 4px;
+                margin-top: 2px;
             }
             
             .quick-buttons {
                 display: flex;
                 gap: 4px;
-                margin-top: 8px;
+                margin-top: 10px;
+                flex-wrap: wrap;
             }
             
             .quick-btn {
                 flex: 1;
-                padding: 4px;
+                min-width: 45px;
+                padding: 6px 4px;
                 border: 2px solid #2196f3;
                 background: white;
                 color: #2196f3;
@@ -259,11 +336,25 @@ function createSizeMarkCard() {
             
             .quick-btn:hover {
                 background: #e3f2fd;
-                transform: translateY(-1px);
+                transform: translateY(-2px);
             }
             
             .quick-btn.active {
                 background: #2196f3;
+                color: white;
+            }
+            
+            #width-quick-buttons .quick-btn {
+                border-color: #4caf50;
+                color: #4caf50;
+            }
+            
+            #width-quick-buttons .quick-btn:hover {
+                background: #e8f5e9;
+            }
+            
+            #width-quick-buttons .quick-btn.active {
+                background: #4caf50;
                 color: white;
             }
             
@@ -278,12 +369,12 @@ function createSizeMarkCard() {
             
             .mark-btn {
                 flex: 1;
-                padding: 8px;
+                padding: 10px;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 13px;
                 transition: all 0.2s;
             }
             
@@ -295,7 +386,7 @@ function createSizeMarkCard() {
             
             .mark-btn.apply:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 4px 8px rgba(76,175,80,0.4);
+                box-shadow: 0 4px 12px rgba(76,175,80,0.4);
             }
             
             .mark-btn.reset {
@@ -306,17 +397,19 @@ function createSizeMarkCard() {
             
             .mark-btn.reset:hover {
                 background: #fff3e0;
+                transform: translateY(-2px);
             }
             
             .hint {
                 margin-top: 8px;
                 padding: 6px 8px;
-                background: rgba(255,255,255,0.7);
+                background: rgba(255,255,255,0.8);
                 border-radius: 4px;
                 font-size: 10px;
                 color: #555;
                 font-style: italic;
                 line-height: 1.4;
+                border-left: 3px solid #ff9800;
             }
         </style>
     `;
@@ -325,75 +418,199 @@ function createSizeMarkCard() {
     document.head.insertAdjacentHTML('beforeend', styleHTML);
     document.body.insertAdjacentHTML('beforeend', cardHTML);
     
-    // Setup event listeners
+    // Setup event listeners (FIXED)
     setupSizeCardListeners();
     
     console.log('✅ Size Mark Card created');
 }
 
+// =============================================
+// FIXED: SETUP SIZE CARD LISTENERS
+// =============================================
 function setupSizeCardListeners() {
-    // Scale slider
+    // Get elements
     const scaleSlider = document.getElementById('scale-slider');
-    scaleSlider.addEventListener('input', function() {
-        document.getElementById('scale-display').textContent = this.value + '%';
-        updateQuickButtons(parseInt(this.value));
-    });
-    
-    // Width slider
     const widthSlider = document.getElementById('width-slider');
-    widthSlider.addEventListener('input', function() {
-        document.getElementById('width-display').textContent = this.value + '%';
-    });
-    
-    // Impact slider
     const impactSlider = document.getElementById('impact-slider');
-    impactSlider.addEventListener('input', function() {
-        document.getElementById('impact-display').textContent = this.value + '%';
+    const liveToggle = document.getElementById('live-preview-toggle');
+    const resetBtn = document.getElementById('reset-size-btn');
+    const applyBtn = document.getElementById('apply-size-btn');
+    
+    // Scale slider events
+    scaleSlider.addEventListener('input', function() {
+        const value = parseInt(this.value);
+        updateSliderDisplay('scale', value);
+        updateScaleQuickButtons(value);
+        if (livePreview) applyLivePreview();
     });
     
-    // Load current values
-    scaleSlider.value = Math.round(CONFIG.chartScale * 100);
-    widthSlider.value = Math.round(CONFIG.barRatio * 100);
-    impactSlider.value = Math.round(CONFIG.sizeImpact * 100);
+    scaleSlider.addEventListener('change', function() {
+        if (!livePreview) applyLivePreview();
+    });
     
-    document.getElementById('scale-display').textContent = scaleSlider.value + '%';
-    document.getElementById('width-display').textContent = widthSlider.value + '%';
-    document.getElementById('impact-display').textContent = impactSlider.value + '%';
+    // Width slider events
+    widthSlider.addEventListener('input', function() {
+        const value = parseInt(this.value);
+        updateSliderDisplay('width', value);
+        updateWidthQuickButtons(value);
+        if (livePreview) applyLivePreview();
+    });
     
-    updateQuickButtons(parseInt(scaleSlider.value));
+    widthSlider.addEventListener('change', function() {
+        if (!livePreview) applyLivePreview();
+    });
+    
+    // Impact slider events
+    impactSlider.addEventListener('input', function() {
+        const value = parseInt(this.value);
+        updateSliderDisplay('impact', value);
+        if (livePreview) applyLivePreview();
+    });
+    
+    impactSlider.addEventListener('change', function() {
+        if (!livePreview) applyLivePreview();
+    });
+    
+    // Live preview toggle
+    liveToggle.addEventListener('change', function() {
+        livePreview = this.checked;
+        console.log('Live preview:', livePreview);
+    });
+    
+    // Quick buttons for scale
+    document.querySelectorAll('#scale-quick-buttons .quick-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const value = parseInt(this.dataset.value);
+            scaleSlider.value = value;
+            updateSliderDisplay('scale', value);
+            updateScaleQuickButtons(value);
+            applyLivePreview();
+        });
+    });
+    
+    // Quick buttons for width
+    document.querySelectorAll('#width-quick-buttons .quick-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const value = parseInt(this.dataset.value);
+            widthSlider.value = value;
+            updateSliderDisplay('width', value);
+            updateWidthQuickButtons(value);
+            applyLivePreview();
+        });
+    });
+    
+    // Reset button
+    resetBtn.addEventListener('click', resetSizeCard);
+    
+    // Apply button
+    applyBtn.addEventListener('click', applySizeCard);
+    
+    // Initialize values from CONFIG
+    syncSlidersFromConfig();
 }
 
-function updateQuickButtons(value) {
-    const buttons = document.querySelectorAll('.quick-btn');
-    buttons.forEach(btn => {
-        const btnValue = parseInt(btn.textContent);
+// =============================================
+// HELPER FUNCTIONS FOR SLIDERS
+// =============================================
+function updateSliderDisplay(type, value) {
+    const display = document.getElementById(`${type}-display`);
+    if (display) {
+        display.textContent = value + '%';
+        // Pulse animation
+        display.classList.add('pulse');
+        setTimeout(() => display.classList.remove('pulse'), 100);
+    }
+}
+
+function updateScaleQuickButtons(value) {
+    document.querySelectorAll('#scale-quick-buttons .quick-btn').forEach(btn => {
+        const btnValue = parseInt(btn.dataset.value);
         btn.classList.toggle('active', btnValue === value);
     });
 }
 
-function quickSetScale(value) {
-    const slider = document.getElementById('scale-slider');
-    slider.value = value;
-    document.getElementById('scale-display').textContent = value + '%';
-    updateQuickButtons(value);
+function updateWidthQuickButtons(value) {
+    document.querySelectorAll('#width-quick-buttons .quick-btn').forEach(btn => {
+        const btnValue = parseInt(btn.dataset.value);
+        // Approximate match for width buttons
+        const isActive = Math.abs(btnValue - value) <= 5;
+        btn.classList.toggle('active', isActive);
+    });
+}
+
+function syncSlidersFromConfig() {
+    const scaleSlider = document.getElementById('scale-slider');
+    const widthSlider = document.getElementById('width-slider');
+    const impactSlider = document.getElementById('impact-slider');
+    
+    if (scaleSlider) {
+        const scaleValue = Math.round(CONFIG.chartScale * 100);
+        scaleSlider.value = scaleValue;
+        updateSliderDisplay('scale', scaleValue);
+        updateScaleQuickButtons(scaleValue);
+    }
+    
+    if (widthSlider) {
+        const widthValue = Math.round(CONFIG.barRatio * 100);
+        widthSlider.value = widthValue;
+        updateSliderDisplay('width', widthValue);
+        updateWidthQuickButtons(widthValue);
+    }
+    
+    if (impactSlider) {
+        const impactValue = Math.round(CONFIG.sizeImpact * 100);
+        impactSlider.value = impactValue;
+        updateSliderDisplay('impact', impactValue);
+    }
+}
+
+function applyLivePreview() {
+    // Get current slider values
+    const scaleValue = parseInt(document.getElementById('scale-slider').value);
+    const widthValue = parseInt(document.getElementById('width-slider').value);
+    const impactValue = parseInt(document.getElementById('impact-slider').value);
+    
+    // Update CONFIG
+    CONFIG.chartScale = scaleValue / 100;
+    CONFIG.barRatio = widthValue / 100;
+    CONFIG.sizeImpact = impactValue / 100;
+    
+    // Re-render chart
+    renderChart();
+    
+    // Update status briefly
+    const status = document.getElementById('size-status');
+    status.textContent = 'Updated';
+    status.classList.add('success');
+    
+    setTimeout(() => {
+        status.textContent = 'Ready';
+        status.classList.remove('success');
+    }, 500);
 }
 
 function resetSizeCard() {
     console.log('🔄 Resetting Size Card...');
     
-    document.getElementById('scale-slider').value = 100;
-    document.getElementById('scale-display').textContent = '100%';
-    updateQuickButtons(100);
+    // Reset to defaults
+    CONFIG.chartScale = 1.0;
+    CONFIG.barRatio = 0.75;
+    CONFIG.sizeImpact = 0.3;
     
-    document.getElementById('width-slider').value = 75;
-    document.getElementById('width-display').textContent = '75%';
+    // Sync sliders
+    syncSlidersFromConfig();
     
-    document.getElementById('impact-slider').value = 30;
-    document.getElementById('impact-display').textContent = '30%';
+    // Re-render
+    renderChart();
     
-    document.getElementById('size-status').textContent = 'Reset';
+    // Status update
+    const status = document.getElementById('size-status');
+    status.textContent = 'Reset!';
+    status.style.background = '#ff9800';
+    
     setTimeout(() => {
-        document.getElementById('size-status').textContent = 'Ready';
+        status.textContent = 'Ready';
+        status.style.background = 'rgba(255,255,255,0.3)';
     }, 1500);
 }
 
@@ -405,15 +622,16 @@ function applySizeCard() {
     CONFIG.barRatio = parseInt(document.getElementById('width-slider').value) / 100;
     CONFIG.sizeImpact = parseInt(document.getElementById('impact-slider').value) / 100;
     
-    console.log('New config:', CONFIG);
+    console.log('Applied config:', CONFIG);
     
     // Update status
-    document.getElementById('size-status').textContent = 'Applied!';
-    document.getElementById('size-status').style.background = '#4caf50';
+    const status = document.getElementById('size-status');
+    status.textContent = 'Applied!';
+    status.classList.add('success');
     
     setTimeout(() => {
-        document.getElementById('size-status').textContent = 'Ready';
-        document.getElementById('size-status').style.background = 'rgba(255,255,255,0.3)';
+        status.textContent = 'Ready';
+        status.classList.remove('success');
     }, 2000);
     
     // Save settings
@@ -423,7 +641,7 @@ function applySizeCard() {
     renderChart();
     
     // Update main status
-    updateStatus(`Scale: ${Math.round(CONFIG.chartScale * 100)}%`);
+    updateStatus(`Scale: ${Math.round(CONFIG.chartScale * 100)}%, Width: ${Math.round(CONFIG.barRatio * 100)}%`);
 }
 
 // =============================================
@@ -433,52 +651,37 @@ async function initTableau() {
     updateStatus('Connecting to Tableau...');
     
     try {
-        // Check if Tableau API exists
         if (typeof tableau === 'undefined' || !tableau.extensions) {
             console.log('⚠️ Tableau API not found, using test data');
             useTestData();
             return;
         }
         
-        // Initialize Tableau
         await tableau.extensions.initializeAsync();
         console.log('✅ Tableau connected');
         isTableauReady = true;
         
-        // Load saved settings
         loadSettings();
+        syncSlidersFromConfig();
         
-        // Update Size Card with loaded settings
-        document.getElementById('scale-slider').value = Math.round(CONFIG.chartScale * 100);
-        document.getElementById('width-slider').value = Math.round(CONFIG.barRatio * 100);
-        document.getElementById('impact-slider').value = Math.round(CONFIG.sizeImpact * 100);
-        document.getElementById('scale-display').textContent = Math.round(CONFIG.chartScale * 100) + '%';
-        document.getElementById('width-display').textContent = Math.round(CONFIG.barRatio * 100) + '%';
-        document.getElementById('impact-display').textContent = Math.round(CONFIG.sizeImpact * 100) + '%';
-        updateQuickButtons(Math.round(CONFIG.chartScale * 100));
-        
-        // Get dashboard and worksheet
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         console.log('📊 Dashboard:', dashboard.name);
         
         if (dashboard.worksheets.length === 0) {
-            showError('No worksheets in dashboard. Add a worksheet first!');
+            showError('No worksheets in dashboard!');
             return;
         }
         
         worksheet = dashboard.worksheets[0];
         console.log('📈 Worksheet:', worksheet.name);
         
-        // Get data
         await fetchTableauData();
         
-        // Listen for changes
         worksheet.addEventListener(tableau.TableauEventType.FilterChanged, fetchTableauData);
         worksheet.addEventListener(tableau.TableauEventType.MarkSelectionChanged, fetchTableauData);
         
     } catch (err) {
         console.error('❌ Tableau error:', err);
-        console.log('Using test data instead...');
         useTestData();
     }
 }
@@ -493,11 +696,9 @@ async function fetchTableauData() {
         const dataTable = await worksheet.getSummaryDataAsync();
         console.log('📊 Got', dataTable.totalRowCount, 'rows');
         
-        // Process data
         chartData = processTableauData(dataTable);
         console.log('✅ Processed', chartData.length, 'items');
         
-        // Render
         renderChart();
         updateStatus('Ready');
         
@@ -511,9 +712,6 @@ function processTableauData(dataTable) {
     const cols = dataTable.columns;
     const rows = dataTable.data;
     
-    console.log('Columns:', cols.map(c => `${c.fieldName} (${c.dataType})`));
-    
-    // Find category and measure columns
     let catIdx = 0;
     let valIdx = 1;
     let sizeIdx = -1;
@@ -524,7 +722,6 @@ function processTableauData(dataTable) {
         if ((col.dataType === 'float' || col.dataType === 'int') && i !== valIdx) sizeIdx = i;
     });
     
-    // Aggregate data
     const map = new Map();
     
     rows.forEach(row => {
@@ -540,7 +737,6 @@ function processTableauData(dataTable) {
         }
     });
     
-    // Convert to array and sort
     const result = Array.from(map.values());
     result.sort((a, b) => b.value - a.value);
     
@@ -549,7 +745,7 @@ function processTableauData(dataTable) {
 
 function useTestData() {
     console.log('📋 Using test data');
-    updateStatus('Using test data');
+    updateStatus('Test mode');
     
     chartData = [
         { category: 'Technology', value: 836154, size: 120 },
@@ -570,7 +766,7 @@ function useTestData() {
 // CHART RENDERING
 // =============================================
 function renderChart() {
-    console.log('🎨 Rendering chart with scale:', CONFIG.chartScale);
+    console.log('🎨 Rendering chart - Scale:', CONFIG.chartScale, 'Width:', CONFIG.barRatio);
     
     hideLoading();
     
@@ -580,20 +776,16 @@ function renderChart() {
         return;
     }
     
-    // Get container size
     const container = document.getElementById('chart-area');
     const width = container.clientWidth;
     const height = container.clientHeight;
     
-    // Margins
-    const margin = { top: 20, right: 30, bottom: 50, left: 70 };
+    const margin = { top: 20, right: 30, bottom: 50, left: 80 };
     const innerW = width - margin.left - margin.right;
     const innerH = height - margin.top - margin.bottom;
     
-    // Clear previous
     d3.select('#chart').selectAll('*').remove();
     
-    // Create SVG with scale
     const svg = d3.select('#chart')
         .attr('width', width)
         .attr('height', height)
@@ -603,13 +795,13 @@ function renderChart() {
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
     
-    // X Scale (categories)
+    // X Scale
     const x = d3.scaleBand()
         .domain(chartData.map(d => d.category))
         .range([0, innerW])
         .padding(0.1);
     
-    // Y Scale (values)
+    // Y Scale
     const y = d3.scaleLinear()
         .domain([0, d3.max(chartData, d => d.value) * 1.1])
         .nice()
@@ -620,23 +812,21 @@ function renderChart() {
         .domain(chartData.map(d => d.category))
         .range(CONFIG.colors);
     
-    // Size scale for bar widths
+    // Size scale
     let sizeScale = null;
     const hasSizeData = chartData.some(d => d.size !== null);
     
-    if (hasSizeData) {
+    if (hasSizeData && CONFIG.sizeImpact > 0) {
         const sizes = chartData.filter(d => d.size !== null).map(d => d.size);
-        const minRatio = Math.max(0.2, CONFIG.barRatio - CONFIG.sizeImpact);
+        const minRatio = Math.max(0.15, CONFIG.barRatio - CONFIG.sizeImpact);
         const maxRatio = Math.min(0.98, CONFIG.barRatio + CONFIG.sizeImpact);
         
         sizeScale = d3.scaleLinear()
             .domain([d3.min(sizes), d3.max(sizes)])
             .range([minRatio, maxRatio]);
-        
-        console.log('Size scale:', { min: minRatio, max: maxRatio });
     }
     
-    // Function to get bar width
+    // Bar width function
     const getBarWidth = (d) => {
         let ratio = CONFIG.barRatio;
         if (sizeScale && d.size !== null) {
@@ -655,25 +845,41 @@ function renderChart() {
     
     g.selectAll('.grid .domain').remove();
     
-    // Bars
+    // Bars with animation
     g.selectAll('.bar')
         .data(chartData)
         .enter()
         .append('rect')
         .attr('class', 'bar')
         .attr('x', d => x(d.category) + (x.bandwidth() - getBarWidth(d)) / 2)
-        .attr('y', d => y(d.value))
+        .attr('y', innerH)
         .attr('width', d => getBarWidth(d))
-        .attr('height', d => innerH - y(d.value))
+        .attr('height', 0)
         .attr('fill', d => color(d.category))
-        .attr('rx', 3)
+        .attr('rx', 4)
         .style('cursor', 'pointer')
+        .transition()
+        .duration(300)
+        .attr('y', d => y(d.value))
+        .attr('height', d => innerH - y(d.value));
+    
+    // Mouse events
+    g.selectAll('.bar')
         .on('mouseenter', function(event, d) {
-            d3.select(this).attr('opacity', 0.7);
+            d3.select(this)
+                .transition()
+                .duration(100)
+                .attr('opacity', 0.7)
+                .attr('stroke', '#333')
+                .attr('stroke-width', 2);
             showTooltip(event, d);
         })
         .on('mouseleave', function() {
-            d3.select(this).attr('opacity', 1);
+            d3.select(this)
+                .transition()
+                .duration(100)
+                .attr('opacity', 1)
+                .attr('stroke', 'none');
             hideTooltip();
         });
     
@@ -684,19 +890,23 @@ function renderChart() {
         .append('text')
         .attr('class', 'label')
         .attr('x', d => x(d.category) + x.bandwidth() / 2)
-        .attr('y', d => y(d.value) - 5)
+        .attr('y', d => y(d.value) - 8)
         .attr('text-anchor', 'middle')
         .style('font-size', '11px')
         .style('font-weight', 'bold')
         .style('fill', '#333')
-        .text(d => formatNum(d.value));
+        .style('opacity', 0)
+        .text(d => formatNum(d.value))
+        .transition()
+        .delay(300)
+        .duration(200)
+        .style('opacity', 1);
     
     // X Axis
     const xAxis = g.append('g')
         .attr('transform', `translate(0,${innerH})`)
         .call(d3.axisBottom(x).tickSize(0));
     
-    // Rotate labels if needed
     if (chartData.length > 5 || x.bandwidth() < 80) {
         xAxis.selectAll('text')
             .attr('transform', 'rotate(-35)')
@@ -715,7 +925,7 @@ function renderChart() {
     yAxis.selectAll('text').style('font-size', '11px');
     yAxis.select('.domain').style('stroke', '#ccc');
     
-    console.log('✅ Chart rendered with', chartData.length, 'bars');
+    console.log('✅ Chart rendered');
 }
 
 function formatNum(n) {
@@ -734,22 +944,23 @@ function showTooltip(event, d) {
         tip.id = 'tooltip';
         tip.style.cssText = `
             position: fixed;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.9);
             color: white;
-            padding: 10px 14px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
             pointer-events: none;
-            z-index: 9999;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            z-index: 99999;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            max-width: 200px;
         `;
         document.body.appendChild(tip);
     }
     
     tip.innerHTML = `
-        <strong>${d.category}</strong><br>
-        Value: ${formatNum(d.value)}
-        ${d.size !== null ? `<br>Size: ${formatNum(d.size)}` : ''}
+        <strong style="font-size: 14px;">${d.category}</strong><br>
+        <span style="color: #90caf9;">Value:</span> ${formatNum(d.value)}
+        ${d.size !== null ? `<br><span style="color: #a5d6a7;">Size:</span> ${formatNum(d.size)}` : ''}
     `;
     tip.style.display = 'block';
     tip.style.left = (event.pageX + 15) + 'px';
@@ -762,79 +973,61 @@ function hideTooltip() {
 }
 
 // =============================================
-// ORIGINAL SIZE CONFIG MODAL (KEPT FOR BACKWARDS COMPATIBILITY)
+// CONFIG MODAL (Alternative to Size Card)
 // =============================================
 function openSizeConfig() {
     console.log('📏 Opening size config modal...');
-    
-    // Close if exists
     closeModal();
     
-    // Create modal HTML
     const modalHTML = `
-        <div id="modal-overlay" onclick="closeModal()">
-            <div id="modal-box" onclick="event.stopPropagation()">
+        <div id="modal-overlay">
+            <div id="modal-box">
                 <div id="modal-header">
                     <span>📏 Size Configuration</span>
-                    <span id="modal-close" onclick="closeModal()">×</span>
+                    <span id="modal-close">×</span>
                 </div>
                 
                 <div id="modal-body">
-                    <!-- CHART SCALE -->
                     <div class="config-group highlight">
                         <label>🔍 Chart Scale (Zoom)</label>
-                        <div class="big-value" id="scale-val">${Math.round(CONFIG.chartScale * 100)}%</div>
-                        <input type="range" id="scale-range" min="50" max="200" 
-                               value="${Math.round(CONFIG.chartScale * 100)}"
-                               oninput="document.getElementById('scale-val').textContent = this.value + '%'">
+                        <div class="big-value" id="modal-scale-val">${Math.round(CONFIG.chartScale * 100)}%</div>
+                        <input type="range" id="modal-scale-range" min="50" max="200" 
+                               value="${Math.round(CONFIG.chartScale * 100)}">
                         <div class="range-labels">
                             <span>50%</span><span>100%</span><span>200%</span>
                         </div>
-                        <div class="quick-btns">
-                            <button onclick="setSlider('scale-range', 50)">50%</button>
-                            <button onclick="setSlider('scale-range', 75)">75%</button>
-                            <button onclick="setSlider('scale-range', 100)">100%</button>
-                            <button onclick="setSlider('scale-range', 150)">150%</button>
-                            <button onclick="setSlider('scale-range', 200)">200%</button>
-                        </div>
                     </div>
                     
-                    <!-- BAR WIDTH -->
                     <div class="config-group">
                         <label>📊 Bar Width</label>
-                        <div class="big-value green" id="width-val">${Math.round(CONFIG.barRatio * 100)}%</div>
-                        <input type="range" id="width-range" min="20" max="98" 
-                               value="${Math.round(CONFIG.barRatio * 100)}"
-                               oninput="document.getElementById('width-val').textContent = this.value + '%'">
+                        <div class="big-value green" id="modal-width-val">${Math.round(CONFIG.barRatio * 100)}%</div>
+                        <input type="range" id="modal-width-range" min="20" max="98" 
+                               value="${Math.round(CONFIG.barRatio * 100)}">
                         <div class="range-labels">
                             <span>Thin</span><span>Thick</span>
                         </div>
                     </div>
                     
-                    <!-- SIZE IMPACT -->
                     <div class="config-group">
                         <label>🎚️ Size Field Impact</label>
-                        <div class="big-value purple" id="impact-val">${Math.round(CONFIG.sizeImpact * 100)}%</div>
-                        <input type="range" id="impact-range" min="0" max="45" 
-                               value="${Math.round(CONFIG.sizeImpact * 100)}"
-                               oninput="document.getElementById('impact-val').textContent = this.value + '%'">
+                        <div class="big-value purple" id="modal-impact-val">${Math.round(CONFIG.sizeImpact * 100)}%</div>
+                        <input type="range" id="modal-impact-range" min="0" max="45" 
+                               value="${Math.round(CONFIG.sizeImpact * 100)}">
                         <div class="range-labels">
-                            <span>Same Width</span><span>Varied</span>
+                            <span>Uniform</span><span>Varied</span>
                         </div>
-                        <p class="hint">💡 Higher = more width variation based on size data</p>
                     </div>
                 </div>
                 
                 <div id="modal-footer">
-                    <button class="btn-reset" onclick="resetConfig()">🔄 Reset</button>
-                    <button class="btn-apply" onclick="applyConfig()">✓ Apply</button>
-                    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button class="btn-reset" id="modal-reset-btn">🔄 Reset</button>
+                    <button class="btn-apply" id="modal-apply-btn">✓ Apply</button>
+                    <button class="btn-cancel" id="modal-cancel-btn">Cancel</button>
                 </div>
             </div>
         </div>
     `;
     
-    // Create modal styles
     const styleHTML = `
         <style id="modal-style">
             #modal-overlay {
@@ -845,23 +1038,15 @@ function openSizeConfig() {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 10000;
+                z-index: 100000;
             }
-            
             #modal-box {
                 background: white;
                 border-radius: 12px;
                 width: 420px;
                 max-width: 95%;
                 box-shadow: 0 15px 50px rgba(0,0,0,0.3);
-                animation: slideIn 0.3s;
             }
-            
-            @keyframes slideIn {
-                from { transform: translateY(-20px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-            }
-            
             #modal-header {
                 display: flex;
                 justify-content: space-between;
@@ -873,35 +1058,26 @@ function openSizeConfig() {
                 font-weight: bold;
                 border-radius: 12px 12px 0 0;
             }
-            
             #modal-close {
                 font-size: 24px;
                 cursor: pointer;
             }
-            
-            #modal-body {
-                padding: 20px;
-            }
-            
+            #modal-body { padding: 20px; }
             .config-group {
                 margin-bottom: 20px;
                 padding: 15px;
                 background: #f8f9fa;
                 border-radius: 8px;
             }
-            
             .config-group.highlight {
                 background: linear-gradient(135deg, #e3f2fd, #bbdefb);
                 border: 2px solid #2196f3;
             }
-            
             .config-group label {
                 display: block;
                 font-weight: bold;
                 margin-bottom: 10px;
-                color: #333;
             }
-            
             .big-value {
                 font-size: 32px;
                 font-weight: 900;
@@ -909,19 +1085,15 @@ function openSizeConfig() {
                 color: #2196f3;
                 margin-bottom: 10px;
             }
-            
             .big-value.green { color: #4caf50; }
             .big-value.purple { color: #9c27b0; }
-            
             input[type="range"] {
                 width: 100%;
                 height: 8px;
                 -webkit-appearance: none;
                 background: #ddd;
                 border-radius: 4px;
-                outline: none;
             }
-            
             input[type="range"]::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 width: 22px;
@@ -932,7 +1104,6 @@ function openSizeConfig() {
                 border: 3px solid white;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             }
-            
             .range-labels {
                 display: flex;
                 justify-content: space-between;
@@ -940,36 +1111,6 @@ function openSizeConfig() {
                 color: #888;
                 margin-top: 5px;
             }
-            
-            .quick-btns {
-                display: flex;
-                gap: 5px;
-                margin-top: 10px;
-            }
-            
-            .quick-btns button {
-                flex: 1;
-                padding: 6px;
-                border: 2px solid #2196f3;
-                background: white;
-                color: #2196f3;
-                border-radius: 5px;
-                cursor: pointer;
-                font-weight: bold;
-                font-size: 11px;
-            }
-            
-            .quick-btns button:hover {
-                background: #e3f2fd;
-            }
-            
-            .hint {
-                margin-top: 8px;
-                font-size: 11px;
-                color: #666;
-                font-style: italic;
-            }
-            
             #modal-footer {
                 display: flex;
                 gap: 10px;
@@ -977,28 +1118,23 @@ function openSizeConfig() {
                 background: #f5f5f5;
                 border-radius: 0 0 12px 12px;
             }
-            
             #modal-footer button {
                 padding: 10px 15px;
                 border: none;
                 border-radius: 6px;
                 cursor: pointer;
                 font-weight: bold;
-                font-size: 13px;
             }
-            
             .btn-apply {
                 flex: 1;
                 background: linear-gradient(135deg, #4caf50, #66bb6a);
                 color: white;
             }
-            
             .btn-reset {
                 background: #fff3e0;
                 color: #e65100;
                 border: 2px solid #ff9800 !important;
             }
-            
             .btn-cancel {
                 background: white;
                 color: #666;
@@ -1007,53 +1143,47 @@ function openSizeConfig() {
         </style>
     `;
     
-    // Add to page
     document.body.insertAdjacentHTML('beforeend', styleHTML);
     document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-function setSlider(id, value) {
-    const slider = document.getElementById(id);
-    slider.value = value;
-    document.getElementById('scale-val').textContent = value + '%';
-}
-
-function resetConfig() {
-    setSlider('scale-range', 100);
-    document.getElementById('width-range').value = 75;
-    document.getElementById('width-val').textContent = '75%';
-    document.getElementById('impact-range').value = 30;
-    document.getElementById('impact-val').textContent = '30%';
-}
-
-function applyConfig() {
-    // Get values
-    CONFIG.chartScale = parseInt(document.getElementById('scale-range').value) / 100;
-    CONFIG.barRatio = parseInt(document.getElementById('width-range').value) / 100;
-    CONFIG.sizeImpact = parseInt(document.getElementById('impact-range').value) / 100;
     
-    console.log('✅ Applied config:', CONFIG);
+    // Setup modal events
+    document.getElementById('modal-overlay').addEventListener('click', closeModal);
+    document.getElementById('modal-box').addEventListener('click', e => e.stopPropagation());
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
     
-    // Update Size Card
-    document.getElementById('scale-slider').value = Math.round(CONFIG.chartScale * 100);
-    document.getElementById('width-slider').value = Math.round(CONFIG.barRatio * 100);
-    document.getElementById('impact-slider').value = Math.round(CONFIG.sizeImpact * 100);
-    document.getElementById('scale-display').textContent = Math.round(CONFIG.chartScale * 100) + '%';
-    document.getElementById('width-display').textContent = Math.round(CONFIG.barRatio * 100) + '%';
-    document.getElementById('impact-display').textContent = Math.round(CONFIG.sizeImpact * 100) + '%';
-    updateQuickButtons(Math.round(CONFIG.chartScale * 100));
+    document.getElementById('modal-scale-range').addEventListener('input', function() {
+        document.getElementById('modal-scale-val').textContent = this.value + '%';
+    });
     
-    // Save to Tableau if available
-    saveSettings();
+    document.getElementById('modal-width-range').addEventListener('input', function() {
+        document.getElementById('modal-width-val').textContent = this.value + '%';
+    });
     
-    // Close modal
-    closeModal();
+    document.getElementById('modal-impact-range').addEventListener('input', function() {
+        document.getElementById('modal-impact-val').textContent = this.value + '%';
+    });
     
-    // Re-render chart
-    renderChart();
+    document.getElementById('modal-reset-btn').addEventListener('click', function() {
+        document.getElementById('modal-scale-range').value = 100;
+        document.getElementById('modal-scale-val').textContent = '100%';
+        document.getElementById('modal-width-range').value = 75;
+        document.getElementById('modal-width-val').textContent = '75%';
+        document.getElementById('modal-impact-range').value = 30;
+        document.getElementById('modal-impact-val').textContent = '30%';
+    });
     
-    // Update status
-    updateStatus(`Scale: ${Math.round(CONFIG.chartScale * 100)}%`);
+    document.getElementById('modal-apply-btn').addEventListener('click', function() {
+        CONFIG.chartScale = parseInt(document.getElementById('modal-scale-range').value) / 100;
+        CONFIG.barRatio = parseInt(document.getElementById('modal-width-range').value) / 100;
+        CONFIG.sizeImpact = parseInt(document.getElementById('modal-impact-range').value) / 100;
+        
+        syncSlidersFromConfig();
+        saveSettings();
+        closeModal();
+        renderChart();
+        updateStatus(`Scale: ${Math.round(CONFIG.chartScale * 100)}%`);
+    });
 }
 
 function closeModal() {
@@ -1067,10 +1197,7 @@ function closeModal() {
 // SETTINGS (Save/Load)
 // =============================================
 function saveSettings() {
-    if (!isTableauReady) {
-        console.log('Not saving - Tableau not ready');
-        return;
-    }
+    if (!isTableauReady) return;
     
     try {
         tableau.extensions.settings.set('chartScale', CONFIG.chartScale.toString());
@@ -1111,24 +1238,27 @@ function refreshChart() {
 }
 
 function hideLoading() {
-    document.getElementById('loading').style.display = 'none';
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
 }
 
 function showError(msg) {
     const err = document.getElementById('error');
-    err.textContent = '❌ ' + msg;
-    err.style.display = 'block';
+    if (err) {
+        err.textContent = '❌ ' + msg;
+        err.style.display = 'block';
+    }
 }
 
 function updateStatus(msg) {
-    document.getElementById('status').textContent = msg;
+    const status = document.getElementById('status');
+    if (status) status.textContent = msg;
 }
 
-// Handle resize
 window.addEventListener('resize', () => {
     if (chartData.length > 0) {
         renderChart();
     }
 });
 
-console.log('✅ Script ready with Size Mark Card');
+console.log('✅ Script ready with FIXED Size Sliders');
