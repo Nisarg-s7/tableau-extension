@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns="http://www.tableau.com/xml/extension_manifest"
+          manifest-version="1.0">
+
+  <dashboard-extension id="com.example.d3barchart"
+                       extension-version="1.0.0">
+
+    <default-locale>en_US</default-locale>
+
+    <name>D3 Bar Chart</name>
+
+    <description>D3 Bar Chart Extension for Tableau</description>
+
+    <author
+      name="Nisarg Shah"
+      email="nisarg@email.com"
+      organization="Student"
+      website="https://example.com" />
+
+    <min-api-version>1.0</min-api-version>
+
+    <source-location>
+      <url>http://localhost:8000/index.html</url>
+    </source-location>
+
+  </dashboard-extension>
+</manifest>
