@@ -7,8 +7,7 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
-    suffixK: "K",      // हज़ारों के लिए (jaise 570.2K)
-    suffixM: "M",      // लाखों के लिए (jaise 1.5M)
+        // लाखों के लिए (jaise 1.5M)
     unit: " KWh"       // आपका यूनिट (jaise " KW", " kg", " $")
 };
 // 👆 यहाँ सेटिंग्स खत्म 👆
