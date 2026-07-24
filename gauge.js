@@ -7,16 +7,33 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
-        // लाखों के लिए (jaise 1.5M)
-    unit: " KWh"       // आपका यूनिट (jaise " KW", " kg", " $")
+    // Yahan se aap apne hisaab se labels change kar sakte hain
+    unitLabel: " KWh",      // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
+    prefix: "",             // Value ke shuru mein lagne wala symbol (jaise ₹ for Rupees)
+    
+    // Agar aap chahein to yahan se number ka format bhi control kar sakte hain
+    // Lekin abhi ke liye hum ise simple rakhenge
+    useSuffix: false,       // K ya M jaisa suffix use karein? (true/false)
+    decimalPlaces: 1       // Kitne decimal place dikhayein?
 };
-// 👆 यहाँ सेटिंग्स खत्म 👆
+// 👆 यहाँ से सेटिंग्स खत्म 👆
 
 // Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
-    // Isse number saaf dikhega (jaise 423.4) bina kisi K ya M ke
-    return value.toFixed(1); 
+    // Agar suffix use nahi karna to sirf number return karo
+    if (!CONFIG.useSuffix) {
+        return value.toFixed(CONFIG.decimalPlaces);
+    }
+
+    // Agar suffix use karna to purana logic chalega
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
+    } else if (value >= 1000) {
+        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+    } else {
+        return Math.round(value);
+    }
 }
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
@@ -31,7 +48,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     totalTarget = window._lockedFinalValues.totalTarget;
     maxScale = window._lockedFinalValues.maxScale;
     allTupleIds = window._lockedFinalValues.allTupleIds;
-    if (totalTarget > 0) targetKey = 'dummy'; // ✅ ये लाइन जोड़ो
+    if (totalTarget > 0) targetKey = 'dummy'; // ✅ Ye lain joड़ो
 }
  else {
       // Auto-detect numeric fields
@@ -231,9 +248,10 @@ valueText.raise();
     const progress = Math.min(elapsed / animationDuration, 1);
     const easeProgress = 1 - Math.pow(1 - progress, 3);
     const currentValue = totalValue * easeProgress;
-    // Removed '$' and set to plain number formatting
-   // valueText.text(d3.format(',.0f')(currentValue)); 
-    valueText.text(formatNumber(currentValue) + CONFIG.unit);
+    
+    // ✅ FIX: Sirf valueText.text() ka istemaal karo
+    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unitLabel);
+
     if (progress < 1) requestAnimationFrame(animateValue);
   }
   // Use requestAnimationFrame for smoother start
