@@ -12,13 +12,7 @@ const CONFIG = {
 
 
 function formatNumber(value) {
-    if (value >= 1000000) {
-        return (value / 1000000).toFixed(1) + CONFIG.suffixM;
-    } else if (value >= 1000) {
-        return (value / 1000).toFixed(1) + CONFIG.suffixK;
-    } else {
-        return Math.round(value);
-    }
+    return value.toFixed(1) + CONFIG.unit;
 }
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
