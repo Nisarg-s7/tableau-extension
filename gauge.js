@@ -5,6 +5,17 @@
 const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
+const CUSTOM_UNIT = " KW"; // <-- यहाँ आप ' KW', ' kg', या खाली '' रख सकते हैं
+
+function formatNumber(value) {
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1) + "M" + CUSTOM_UNIT;
+    } else if (value >= 1000) {
+        return (value / 1000).toFixed(1) + "K" + CUSTOM_UNIT;
+    } else {
+        return Math.round(value) + CUSTOM_UNIT;
+    }
+}
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
   
@@ -163,7 +174,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-        .text(d3.format(".2s")(f * maxScale));
+       .text(formatNumber(f * maxScale)); 
   }
 
   // Target line
@@ -206,7 +217,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     .style('font-size', Math.max(16, radius * 0.25) + 'px')
     .style('font-weight', 'bold')
     .style('fill', palette[0])
-    .text('0M');
+    .text(formatNumber(0));
 
 valueText.raise();
 
@@ -221,7 +232,7 @@ valueText.raise();
     const currentValue = totalValue * easeProgress;
     // Removed '$' and set to plain number formatting
    // valueText.text(d3.format(',.0f')(currentValue)); 
-    valueText.text(d3.format('.3s')(currentValue)); 
+     valueText.text(formatNumber(currentValue));
     if (progress < 1) requestAnimationFrame(animateValue);
   }
   // Use requestAnimationFrame for smoother start
@@ -248,9 +259,9 @@ if (targetKey && totalTarget > 0) {
       .attr('dominant-baseline', 'middle')
       .style('font-family', 'Arial, sans-serif')
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
-      .style('font-weight', '400')
+            .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + d3.format(",.0f")(totalTarget));
+      .text('Target: ' + formatNumber(totalTarget)); // <-- यहाँ बदलाव किया गया है
 
     targetText.raise();
 }
