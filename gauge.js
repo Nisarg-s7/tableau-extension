@@ -24,14 +24,16 @@ const CONFIG = {
 function formatNumber(value) {
     // Agar suffix use nahi karna to sirf number return karo
     if (!CONFIG.useSuffix) {
-        return value.toFixed(CONFIG.decimalPlaces);
+        // Ye thoda tricky hai, humein number ko format string ke hisaab se format karna hai
+        // Simple tareeka: toFixed use karo
+        return value.toFixed(CONFIG.format.split('.').pop().length); 
     }
 
     // Agar suffix use karna to purana logic chalega
     if (value >= 1000000) {
-        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
+        return (value / 1000000).toFixed(1) + "M";
     } else if (value >= 1000) {
-        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+        return (value / 1000).toFixed(1) + "K";
     } else {
         return Math.round(value);
     }
@@ -306,6 +308,26 @@ if (targetKey && totalTarget > 0) {
 }
 
 // RENDER
+// 👇 YEH NAYA CODE DAALEIN 👇
+// Tableau se config ko parse karo
+let config = {};
+try {
+    // 'styles' argument se config string milta hai
+    if (styles && styles.configJson) {
+        config = JSON.parse(styles.configJson);
+    }
+} catch (e) {
+    console.error("Error parsing config:", e);
+}
+
+// Default values agar config nahi milta
+const CONFIG = {
+    measure: config.measure || "Sales", // Default measure
+    format: config.format || "#,##0.00", // Default format
+    useSuffix: config.useSuffix !== false, // Default true
+    prefix: ""
+};
+// 👆 YEH NAYA CODE KHATAM 👆
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   const encodedData = getEncodedData(rawData, encodingMap);
   const content = document.getElementById('content');
