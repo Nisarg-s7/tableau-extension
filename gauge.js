@@ -16,14 +16,8 @@ const CONFIG = {
 // Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
-    // Ye function sirf number ko format karega, usme unit nahi jodega
-    if (value >= 1000000) {
-        return (value / 1000000).toFixed(1) + CONFIG.suffixM;
-    } else if (value >= 1000) {
-        return (value / 1000).toFixed(1) + CONFIG.suffixK;
-    } else {
-        return Math.round(value);
-    }
+    // Isse number saaf dikhega (jaise 423.4) bina kisi K ya M ke
+    return value.toFixed(1); 
 }
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
