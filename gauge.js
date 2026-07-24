@@ -5,39 +5,49 @@
 const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
-// 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
+// 👇 YAHAN SE APNI SETTINGS BADALEN 👇
+// Tableau se aane wale config ko parse karke default values set karein
+let config = {};
+try {
+    // 'styles' argument se config string milta hai
+    if (styles && styles.configJson) {
+        config = JSON.parse(styles.configJson);
+    }
+} catch (e) {
+    console.error("Error parsing config:", e);
+}
+
+// Agar Tableau se config nahi milta, toh ye default values istemal hongi
 const CONFIG = {
-    // Yahan se aap apne hisaab se labels change kar sakte hain
-    unitLabel: " KWh",      // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
-    unit: " KWh",           // ✅ YEH LINE ADD KAREIN
-    prefix: "",             // Value ke shuru mein lagne wala symbol (jaise ₹ for Rupees)
-    
-    // Agar aap chahein to yahan se number ka format bhi control kar sakte hain
-    // Lekin abhi ke liye hum ise simple rakhenge
-    useSuffix: false,       // K ya M jaisa suffix use karein? (true/false)
-    decimalPlaces: 1       // Kitne decimal place dikhayein?
+    measure: config.measure || "Sales", // Default measure
+    format: config.format || "#,##0.00", // Default format (ye abhi use nahi hota, lekin future ke liye hai)
+    useSuffix: config.useSuffix !== false, // Default true (K/M suffix dikhayega)
+    decimalPlaces: config.decimalPlaces || 1, // Kitne decimal place dikhayein
+    prefix: config.prefix || "", // Value ke shuru mein lagne wala symbol (jaise ₹)
+    unit: config.unit || " KWh" // Unit label (jaise KWh, Litre, etc.)
 };
-// 👆 यहाँ से सेटिंग्स खत्म 👆
+// 👆 YAHAN SE SETTINGS KHATAM 👆
+
 
 // Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
     // Agar suffix use nahi karna to sirf number return karo
     if (!CONFIG.useSuffix) {
-        // Ye thoda tricky hai, humein number ko format string ke hisaab se format karna hai
-        // Simple tareeka: toFixed use karo
-        return value.toFixed(CONFIG.format.split('.').pop().length); 
+        // Number ko specific decimal places tak format karo
+        return value.toFixed(CONFIG.decimalPlaces);
     }
 
     // Agar suffix use karna to purana logic chalega
     if (value >= 1000000) {
-        return (value / 1000000).toFixed(1) + "M";
+        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
     } else if (value >= 1000) {
-        return (value / 1000).toFixed(1) + "K";
+        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
     } else {
         return Math.round(value);
     }
 }
+
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
   
@@ -51,9 +61,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     totalTarget = window._lockedFinalValues.totalTarget;
     maxScale = window._lockedFinalValues.maxScale;
     allTupleIds = window._lockedFinalValues.allTupleIds;
-    if (totalTarget > 0) targetKey = 'dummy'; // ✅ Ye lain joड़ो
-}
- else {
+    if (totalTarget > 0) targetKey = 'dummy'; 
+  } else {
       // Auto-detect numeric fields
       const numericKeys = (data => {
         if (!data || data.length === 0) return [];
@@ -69,7 +78,11 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 
       if (numericKeys.length > 0) {
           const foundTarget = numericKeys.find(k => k.toLowerCase().includes('target') || k.toLowerCase().includes('calc'));
-          if (foundTarget && numericKeys.length > 1) {
+          // Agar CONFIG.measure ka naam numeric keys mein hai, toh use valueKey banao
+          if (numericKeys.includes(CONFIG.measure)) {
+              valueKey = CONFIG.measure;
+              targetKey = numericKeys.find(k => k !== CONFIG.measure);
+          } else if (foundTarget && numericKeys.length > 1) {
               targetKey = foundTarget;
               valueKey = numericKeys.find(k => k !== foundTarget);
           } else if (numericKeys.length > 1) {
@@ -196,7 +209,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-       .text(formatNumber(f * maxScale) + CONFIG.unit); // ✅ YAHAN BHI BADAL DIYA HAI
+       .text(formatNumber(f * maxScale) + CONFIG.unit);
   }
 
   // Target line
@@ -230,7 +243,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     .attr('r', Math.max(1.5, radius * 0.03))
     .attr('fill', '#fff');
 
-  // ANIMATED VALUE - FIXED!
+  // ANIMATED VALUE
    const valueText = chartGroup.append('text')
     .attr('y', radius * 0.30)
     .attr('text-anchor', 'middle')
@@ -252,12 +265,10 @@ valueText.raise();
     const easeProgress = 1 - Math.pow(1 - progress, 3);
     const currentValue = totalValue * easeProgress;
     
-    // ✅ FIX: Sirf valueText.text() ka istemaal karo
     valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unit);
 
     if (progress < 1) requestAnimationFrame(animateValue);
   }
-  // Use requestAnimationFrame for smoother start
   requestAnimationFrame(animateValue);
 
   // Percentage
@@ -265,7 +276,6 @@ valueText.raise();
   if (totalTarget > 0) {
       actualPercentage = (totalValue / totalTarget) * 100;
   } else {
-      // જો ટાર્ગેટ ના હોય તો 100% બતાવશે
       actualPercentage = totalValue > 0 ? 100 : 0; 
   }
 
@@ -291,7 +301,7 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit); // ✅ YAHAN BHI BADAL DIYA HAI
+      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit);
 
     targetText.raise();
 }
@@ -308,26 +318,6 @@ if (targetKey && totalTarget > 0) {
 }
 
 // RENDER
-// 👇 YEH NAYA CODE DAALEIN 👇
-// Tableau se config ko parse karo
-let config = {};
-try {
-    // 'styles' argument se config string milta hai
-    if (styles && styles.configJson) {
-        config = JSON.parse(styles.configJson);
-    }
-} catch (e) {
-    console.error("Error parsing config:", e);
-}
-
-// Default values agar config nahi milta
-const CONFIG = {
-    measure: config.measure || "Sales", // Default measure
-    format: config.format || "#,##0.00", // Default format
-    useSuffix: config.useSuffix !== false, // Default true
-    prefix: ""
-};
-// 👆 YEH NAYA CODE KHATAM 👆
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   const encodedData = getEncodedData(rawData, encodingMap);
   const content = document.getElementById('content');
@@ -351,7 +341,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 // INIT
 window.onload = function() {
   tableau.extensions.initializeAsync().then(async () => {
-    window._lockedFinalValues = null; // ✅ Ye lain joड़o
+    window._lockedFinalValues = null;
     const worksheet = getWorksheet();
     let summaryData = {};
     let encodingMap = {};
