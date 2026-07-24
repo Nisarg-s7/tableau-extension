@@ -7,12 +7,23 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
-       unit: " KWh"        // यूनिट (जैसे " KW", " kg", " $")
+    suffixK: "K",      // हज़ारों के लिए (jaise 570.2K)
+    suffixM: "M",      // लाखों के लिए (jaise 1.5M)
+    unit: " KWh"       // आपका यूनिट (jaise " KW", " kg", " $")
 };
+// 👆 यहाँ सेटिंग्स खत्म 👆
 
+// Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
-    return value.toFixed(1) + CONFIG.unit;
+    // Ye function sirf number ko format karega, usme unit nahi jodega
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1) + CONFIG.suffixM;
+    } else if (value >= 1000) {
+        return (value / 1000).toFixed(1) + CONFIG.suffixK;
+    } else {
+        return Math.round(value);
+    }
 }
 // MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
