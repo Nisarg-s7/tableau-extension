@@ -239,7 +239,15 @@ valueText.raise();
   requestAnimationFrame(animateValue);
 
   // Percentage
-const percentageText = chartGroup.append('text')
+  let actualPercentage = 0;
+  if (totalTarget > 0) {
+      actualPercentage = (totalValue / totalTarget) * 100;
+  } else {
+      // જો ટાર્ગેટ ના હોય તો 100% બતાવશે
+      actualPercentage = totalValue > 0 ? 100 : 0; 
+  }
+
+  const percentageText = chartGroup.append('text')
     .attr('y', radius * 0.70)
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
@@ -247,7 +255,7 @@ const percentageText = chartGroup.append('text')
     .style('font-size', Math.max(10, radius * 0.15) + 'px')
     .style('font-weight', 'bold')
     .style('fill', '#666')
-    .text(`${(valueFraction * 100).toFixed(1)}% achieved`);
+    .text(`${actualPercentage.toFixed(1)}% achieved`);
 
 percentageText.raise();
 
