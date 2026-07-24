@@ -5,15 +5,23 @@
 const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
-const CUSTOM_UNIT = " KW"; // <-- यहाँ आप ' KW', ' kg', या खाली '' रख सकते हैं
+// 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
+const CONFIG = {
+    suffixK: "K",      // हज़ारों के लिए (जैसे 570.2K)
+    suffixM: "M",      // लाखों के लिए (जैसे 1.5M)
+    unit: " KW"        // यूनिट (जैसे " KW", " kg", " $")
+};
+// 👆 यहाँ सेटिंग्स खत्म 👆
+
+// पुरानी लाइन हटा दी गई है: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
     if (value >= 1000000) {
-        return (value / 1000000).toFixed(1) + "M" + CUSTOM_UNIT;
+        return (value / 1000000).toFixed(1) + CONFIG.suffixM;
     } else if (value >= 1000) {
-        return (value / 1000).toFixed(1) + "K" + CUSTOM_UNIT;
+        return (value / 1000).toFixed(1) + CONFIG.suffixK;
     } else {
-        return Math.round(value) + CUSTOM_UNIT;
+        return Math.round(value);
     }
 }
 // MAIN GAUGE CHART FUNCTION
@@ -174,7 +182,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-       .text(formatNumber(f * maxScale)); 
+       .text(formatNumber(f * maxScale) + CONFIG.unit); 
   }
 
   // Target line
@@ -217,8 +225,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     .style('font-size', Math.max(16, radius * 0.25) + 'px')
     .style('font-weight', 'bold')
     .style('fill', palette[0])
-    .text(formatNumber(0));
-
+    .text(formatNumber(0) + CONFIG.unit);
 valueText.raise();
 
   
@@ -232,7 +239,7 @@ valueText.raise();
     const currentValue = totalValue * easeProgress;
     // Removed '$' and set to plain number formatting
    // valueText.text(d3.format(',.0f')(currentValue)); 
-     valueText.text(formatNumber(currentValue));
+    valueText.text(formatNumber(currentValue) + CONFIG.unit);
     if (progress < 1) requestAnimationFrame(animateValue);
   }
   // Use requestAnimationFrame for smoother start
@@ -269,7 +276,7 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + formatNumber(totalTarget)); // <-- यहाँ बदलाव किया गया है
+      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit); // <-- यहाँ बदलाव किया गया है
 
     targetText.raise();
 }
