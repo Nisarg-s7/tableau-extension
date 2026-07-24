@@ -8,7 +8,9 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
     // Yahan se aap apne hisaab se labels change kar sakte hain
-    unitLabel: " KWh",      // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
+    unitLabel: " KWh",  
+        unit: " KWh",           // ✅ YEH LINE ADD KAREIN
+    // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
     prefix: "",             // Value ke shuru mein lagne wala symbol (jaise ₹ for Rupees)
     
     // Agar aap chahein to yahan se number ka format bhi control kar sakte hain
