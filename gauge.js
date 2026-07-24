@@ -8,9 +8,8 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
     // Yahan se aap apne hisaab se labels change kar sakte hain
-    unitLabel: " KWh",  
-        unit: " KWh",           // ✅ YEH LINE ADD KAREIN
-    // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
+    unitLabel: " KWh",      // Value ke aage lagne wala label (jaise KWh, Litre, etc.)
+    unit: " KWh",           // ✅ YEH LINE ADD KAREIN
     prefix: "",             // Value ke shuru mein lagne wala symbol (jaise ₹ for Rupees)
     
     // Agar aap chahein to yahan se number ka format bhi control kar sakte hain
@@ -195,7 +194,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-       .text(formatNumber(f * maxScale) + CONFIG.unit); 
+       .text(formatNumber(f * maxScale) + CONFIG.unit); // ✅ YAHAN BHI BADAL DIYA HAI
   }
 
   // Target line
@@ -252,7 +251,7 @@ valueText.raise();
     const currentValue = totalValue * easeProgress;
     
     // ✅ FIX: Sirf valueText.text() ka istemaal karo
-    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unitLabel);
+    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unit);
 
     if (progress < 1) requestAnimationFrame(animateValue);
   }
@@ -290,7 +289,7 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit); // <-- यहाँ बदलाव किया गया है
+      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit); // ✅ YAHAN BHI BADAL DIYA HAI
 
     targetText.raise();
 }
@@ -330,7 +329,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 // INIT
 window.onload = function() {
   tableau.extensions.initializeAsync().then(async () => {
-    window._lockedFinalValues = null; // ✅ ये लाइन जोड़ो
+    window._lockedFinalValues = null; // ✅ Ye lain joड़o
     const worksheet = getWorksheet();
     let summaryData = {};
     let encodingMap = {};
