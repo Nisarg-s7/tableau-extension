@@ -7,13 +7,9 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 यहाँ से अपनी सेटिंग्स बदलें 👇
 const CONFIG = {
-    suffixK: "K",      // हज़ारों के लिए (जैसे 570.2K)
-    suffixM: "M",      // लाखों के लिए (जैसे 1.5M)
-    unit: " KW"        // यूनिट (जैसे " KW", " kg", " $")
+       unit: " KWh"        // यूनिट (जैसे " KW", " kg", " $")
 };
-// 👆 यहाँ सेटिंग्स खत्म 👆
 
-// पुरानी लाइन हटा दी गई है: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
     if (value >= 1000000) {
