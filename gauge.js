@@ -9,7 +9,6 @@ const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 // Tableau se aane wale config ko parse karke default values set karein
 let config = {};
 try {
-    // 'styles' argument se config string milta hai
     if (styles && styles.configJson) {
         config = JSON.parse(styles.configJson);
     }
@@ -20,11 +19,14 @@ try {
 // Agar Tableau se config nahi milta, toh ye default values istemal hongi
 const CONFIG = {
     measure: config.measure || "Sales", // Default measure
-    format: config.format || "#,##0.00", // Default format (ye abhi use nahi hota, lekin future ke liye hai)
-    useSuffix: config.useSuffix !== false, // Default true (K/M suffix dikhayega)
+    // ✅ YEH SABSE ZAROORI BADLAAV HAI
+    // Yahan aap woh suffix likhein jo aap number ke peeche lagana chahte hain.
+    // Jaise: " KWh", " %", " Litres", " Gallons", etc.
+    // Agar kuch nahi chahiye toh khali chhod dein: ""
+    suffix: config.suffix || " KWh", 
     decimalPlaces: config.decimalPlaces || 1, // Kitne decimal place dikhayein
     prefix: config.prefix || "", // Value ke shuru mein lagne wala symbol (jaise ₹)
-    unit: config.unit || " KWh" // Unit label (jaise KWh, Litre, etc.)
+    useSuffix: true // Hum hamesha apna custom suffix use karenge
 };
 // 👆 YAHAN SE SETTINGS KHATAM 👆
 
@@ -34,17 +36,20 @@ const CONFIG = {
 function formatNumber(value) {
     // Agar suffix use nahi karna to sirf number return karo
     if (!CONFIG.useSuffix) {
-        // Number ko specific decimal places tak format karo
         return value.toFixed(CONFIG.decimalPlaces);
     }
 
+    // ✅ YEH LOGIC SIMPLE KIYA GAYA HAI
+    // Ab yeh hamesha aapke CONFIG.suffix ka istemal karega.
+    // Isse "KWh" do baar nahi lagega.
+    
     // Agar suffix use karna to purana logic chalega
     if (value >= 1000000) {
-        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
+        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M" + CONFIG.suffix;
     } else if (value >= 1000) {
-        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K" + CONFIG.suffix;
     } else {
-        return Math.round(value);
+        return Math.round(value) + CONFIG.suffix;
     }
 }
 
@@ -55,7 +60,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
   let targetKey = null;
   let totalValue, totalTarget, maxScale, allTupleIds;
 
-  // Check if values are locked (prevents recalculation on resize)
   if (window._lockedFinalValues) {
     totalValue = window._lockedFinalValues.totalValue;
     totalTarget = window._lockedFinalValues.totalTarget;
@@ -63,7 +67,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     allTupleIds = window._lockedFinalValues.allTupleIds;
     if (totalTarget > 0) targetKey = 'dummy'; 
   } else {
-      // Auto-detect numeric fields
       const numericKeys = (data => {
         if (!data || data.length === 0) return [];
         const sample = data[0];
@@ -78,7 +81,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 
       if (numericKeys.length > 0) {
           const foundTarget = numericKeys.find(k => k.toLowerCase().includes('target') || k.toLowerCase().includes('calc'));
-          // Agar CONFIG.measure ka naam numeric keys mein hai, toh use valueKey banao
           if (numericKeys.includes(CONFIG.measure)) {
               valueKey = CONFIG.measure;
               targetKey = numericKeys.find(k => k !== CONFIG.measure);
@@ -96,7 +98,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 
       if (!valueKey) return { viz: null };
 
-      // Aggregate data
       totalValue = 0;
       totalTarget = 0;
       allTupleIds = [];
@@ -107,7 +108,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         if (row.tupleId) allTupleIds.push(row.tupleId);
       });
 
-      // Calculate scale
       if (totalTarget > 0) {
           const rawMax = totalTarget * 1.25;
           const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
@@ -118,7 +118,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
           maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
       }
 
-      // Lock values
       window._lockedFinalValues = {
           totalValue: totalValue,
           totalTarget: totalTarget,
@@ -127,11 +126,9 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
       };
   }
 
-  // Ensure minimum dimensions
   width = Math.max(width, 100);
   height = Math.max(height, 100);
 
-  // Dynamic sizing
   const minDim = Math.min(width, height);
   const margin = { 
     top: minDim * 0.12, 
@@ -147,7 +144,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     (height - margin.top - margin.bottom) / 2.15
   );
 
-  // Create SVG
   const svg = d3.create('svg')
     .attr('class', tableau.ClassNameKey.Worksheet)
     .attr('width', '100%')
@@ -160,14 +156,12 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
   const chartGroup = svg.append('g')
     .attr('transform', `translate(${cx}, ${cy})`);
 
-  // Angles
   const startAngle = -Math.PI * 0.75; 
   const endAngle = Math.PI * 0.75;   
   const totalRange = endAngle - startAngle;
   const valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
   const currentAngle = startAngle + (valueFraction * totalRange);
 
-  // Arcs
   const arcGen = d3.arc()
     .innerRadius(radius * 0.7)
     .outerRadius(radius)
@@ -181,7 +175,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 .attr('d', arcGen({ startAngle, endAngle: currentAngle + 0.03 }))
     .attr('fill', palette[0]);
 
-  // Ticks
   const numLabels = 5;
   for (let i = 0; i <= numLabels; i++) {
       const f = i / numLabels;
@@ -209,10 +202,9 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-       .text(formatNumber(f * maxScale) + CONFIG.unit);
+       .text(formatNumber(f * maxScale) + CONFIG.suffix);
   }
 
-  // Target line
   if (targetKey && totalTarget > 0) {
       const tAngle = startAngle + (Math.min(totalTarget / maxScale, 1) * totalRange);
       chartGroup.append('line')
@@ -225,7 +217,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
         .attr('stroke-linecap', 'round');
   }
 
-  // Needle
   const needleGroup = chartGroup.append('g')
     .attr('transform', `rotate(${(currentAngle * 180 / Math.PI)})`);
   const needleLen = radius * 0.85;
@@ -243,7 +234,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     .attr('r', Math.max(1.5, radius * 0.03))
     .attr('fill', '#fff');
 
-  // ANIMATED VALUE
    const valueText = chartGroup.append('text')
     .attr('y', radius * 0.30)
     .attr('text-anchor', 'middle')
@@ -252,7 +242,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     .style('font-size', Math.max(16, radius * 0.25) + 'px')
     .style('font-weight', 'bold')
     .style('fill', palette[0])
-    .text(formatNumber(0) + CONFIG.unit);
+    .text(formatNumber(0) + CONFIG.suffix);
 valueText.raise();
 
   
@@ -265,13 +255,13 @@ valueText.raise();
     const easeProgress = 1 - Math.pow(1 - progress, 3);
     const currentValue = totalValue * easeProgress;
     
-    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unit);
+    // ✅ YAHAN BHI SUFFIX LAGAYA GAYA HAI
+    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.suffix);
 
     if (progress < 1) requestAnimationFrame(animateValue);
   }
   requestAnimationFrame(animateValue);
 
-  // Percentage
   let actualPercentage = 0;
   if (totalTarget > 0) {
       actualPercentage = (totalValue / totalTarget) * 100;
@@ -291,8 +281,7 @@ valueText.raise();
 
 percentageText.raise();
 
-  // Target
-if (targetKey && totalTarget > 0) {
+  if (targetKey && totalTarget > 0) {
     const targetText = chartGroup.append('text')
       .attr('y', radius * 0.85)
       .attr('text-anchor', 'middle')
@@ -301,12 +290,11 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit);
+      .text('Target: ' + formatNumber(totalTarget) + CONFIG.suffix);
 
     targetText.raise();
-}
+  }
 
-  // Interaction
   const interactionElement = chartGroup.append('circle')
     .attr('r', radius)
     .attr('fill', 'transparent')
@@ -317,7 +305,6 @@ if (targetKey && totalTarget > 0) {
   return { viz: svg.node(), interactionElement, allTupleIds };
 }
 
-// RENDER
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   const encodedData = getEncodedData(rawData, encodingMap);
   const content = document.getElementById('content');
@@ -338,7 +325,6 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   return result;
 }
 
-// INIT
 window.onload = function() {
   tableau.extensions.initializeAsync().then(async () => {
     window._lockedFinalValues = null;
@@ -390,7 +376,6 @@ window.onload = function() {
   });
 };
 
-// HELPERS
 async function getEncodingMap() {
   const worksheet = getWorksheet();
   const visualSpec = await worksheet.getVisualSpecificationAsync();
@@ -454,7 +439,7 @@ function getWorksheet() {
 
 async function getSelection(worksheet, allMarks) {
   try {
-    const selectedMarks = await worksheet.getSelectedMarksAsync();
+    const selectedMarks = await worksheet.getSelectedMarksAsyncnc();
     if (!selectedMarks.data[0]) return new Map();
     const columns = selectedMarks.data[0].columns;
     const selectedMarksIds = new Map();
