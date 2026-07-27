@@ -172,8 +172,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     .attr('height', '100%')
     .attr('viewBox', `0 0 ${width} ${height}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
-    .style('background', 'white')
-    .style('display', 'block');
+    .style('background', 'white'); // Bas itna hi rahne dein
     
   const chartGroup = svg.append('g')
     .attr('transform', `translate(${cx}, ${cy})`);
