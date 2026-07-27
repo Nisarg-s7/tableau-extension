@@ -18,30 +18,26 @@ try {
 const CONFIG = {
     measure: config.measure || "Sales",
     format: config.format || "#,##0.00",
-    useSuffix: config.useSuffix !== false, // Agar true hai, toh K/M lagega. Agar false, toh nahi.
+    useSuffix: config.useSuffix !== false,
     decimalPlaces: config.decimalPlaces || 1,
-    // ✨ NAYI SETTING: Sirf "Achieved" value ke liye decimal places control karna
-    decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 1, 
+    decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 1,
     prefix: config.prefix || "",
     unit: config.unit || " ",
-    isPercentage: config.isPercentage || false 
+    isPercentage: config.isPercentage || false
 };
 
-// ✨ YEH FUNCTION UPDATE KIYA HAI ✨
-// Ab yeh function alag-alag jagahon par alag-alag format de sakta hai
-function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage) {
+// ✨ includeUnit parameter add kiya hai (default true). false dene se KWh/unit nahi lagega.
+function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true) {
     value = Number(value) || 0;
 
     if (isPercentage) {
         return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
 
-    // Agar suffix nahi chahiye, toh bas number return karo
     if (!useSuffix) {
         return value.toFixed(CONFIG.decimalPlaces);
     }
 
-    // Agar suffix chahiye, toh purana logic yahan hai
     let formattedValue;
     if (Math.abs(value) >= 1000000) {
         formattedValue = (value / 1000000).toFixed(CONFIG.decimalPlacesForAchievedValue) + "M";
@@ -51,7 +47,7 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
         formattedValue = value.toFixed(CONFIG.decimalPlacesForAchievedValue);
     }
 
-    return (CONFIG.prefix || "") + formattedValue + (CONFIG.unit || "");
+    return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
 }
 
 
@@ -94,7 +90,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     totalValue = 0;
     totalTarget = 0;
     allTupleIds = [];
-    
+
     encodedData.forEach(row => {
         totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
         if (targetKey) {
@@ -103,31 +99,24 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         if (row.tupleId) allTupleIds.push(row.tupleId);
     });
 
+    // ✨ BADLAV: maxScale = target (taaki 100% position = target ho, ticks pe actual value aaye)
     if (CONFIG.isPercentage) {
         maxScale = 100;
     } else {
-        if (totalTarget > 0) {
-            const rawMax = totalTarget * 1.25;
-            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-        } else {
-            const rawMax = totalValue * 1.4;
-            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-        }
+        maxScale = totalTarget > 0 ? totalTarget : (totalValue > 0 ? totalValue : 100);
     }
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
 
     const minDim = Math.min(width, height);
-    const margin = { 
-        top: minDim * 0.12, 
-        right: minDim * 0.15, 
-        bottom: minDim * 0.12, 
-        left: minDim * 0.15 
+    const margin = {
+        top: minDim * 0.12,
+        right: minDim * 0.15,
+        bottom: minDim * 0.12,
+        left: minDim * 0.15
     };
-    
+
     const cx = width / 2;
     const cy = height / 2;
     const radius = Math.min(
@@ -142,25 +131,30 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet')
         .style('background', 'white');
-        
+
     const chartGroup = svg.append('g')
         .attr('transform', `translate(${cx}, ${cy})`);
 
-    const startAngle = -Math.PI * 0.75; 
-    const endAngle = Math.PI * 0.75;   
+    const startAngle = -Math.PI * 0.75;
+    const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
-    const valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
+
+    // ✨ valueFraction ab achieved% ke basis pe (maxScale=target hone se yeh achieved/100 ke barabar hi hai)
+    const achievedPct = totalTarget > 0
+        ? (totalValue / totalTarget) * 100
+        : (totalValue > 0 ? 100 : 0);
+    const valueFraction = Math.min(Math.max(achievedPct / 100, 0), 1);
     const currentAngle = startAngle + (valueFraction * totalRange);
 
     const arcGen = d3.arc()
         .innerRadius(radius * 0.7)
         .outerRadius(radius)
         .cornerRadius(Math.max(2, radius * 0.05));
-        
+
     chartGroup.append('path')
         .attr('d', arcGen({ startAngle, endAngle }))
         .attr('fill', '#D3D3D3');
-        
+
     chartGroup.append('path')
         .attr('d', arcGen({ startAngle, endAngle: currentAngle + 0.03 }))
         .attr('fill', palette[0]);
@@ -169,7 +163,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     for (let i = 0; i <= numLabels; i++) {
         const f = i / numLabels;
         const angle = startAngle + (f * totalRange);
-        const x = Math.sin(angle); 
+        const x = Math.sin(angle);
         const y = -Math.cos(angle);
         const tickStart = radius * 1.05;
         const tickEnd = radius * 1.15;
@@ -182,7 +176,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .attr('y2', tickEnd * y)
             .attr('stroke', '#333')
             .attr('stroke-width', Math.max(1, radius * 0.02));
-        
+
         chartGroup.append('text')
             .attr('x', labelR * x)
             .attr('y', labelR * y)
@@ -192,7 +186,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(9, radius * 0.15) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            // ✨ YAHAN BADLAV HAI: Labels ke liye suffix nahi dikhana
+            // ✨ Ticks pe ACTUAL VALUE (no %, no KWh)
             .text(formatNumber(f * maxScale, false, CONFIG.isPercentage));
     }
 
@@ -212,15 +206,15 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('transform', `rotate(${(currentAngle * 180 / Math.PI)})`);
     const needleLen = radius * 0.85;
     const needleWidth = Math.max(4, radius * 0.04);
-    
+
     needleGroup.append('path')
         .attr('d', `M -${needleWidth} 0 L 0 -${needleLen} L ${needleWidth} 0 Z`)
         .attr('fill', '#333');
-        
+
     chartGroup.append('circle')
         .attr('r', Math.max(3, radius * 0.06))
         .attr('fill', '#333');
-    
+
     chartGroup.append('circle')
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
@@ -233,22 +227,22 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-size', Math.max(16, radius * 0.25) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        // ✨ YAHAN BADLAV HAI: "Achieved" value ke liye suffix dikhana
-        .text(formatNumber(totalValue, true, CONFIG.isPercentage));
+        // ✨ Center value: K/M suffix rahega, lekin KWh (unit) GAYAB (last false)
+        .text(formatNumber(totalValue, true, CONFIG.isPercentage, false));
 
     valueText.raise();
 
     const animationDuration = 1000;
     const startTime = Date.now();
-    
+
     function animateValue() {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / animationDuration, 1);
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
-        
-        valueText.text(formatNumber(totalValue, true, CONFIG.isPercentage));
 
+        // ✨ Yahan bhi KWh gayab
+        valueText.text(formatNumber(currentValue, true, CONFIG.isPercentage, false));
 
         if (progress < 1) requestAnimationFrame(animateValue);
     }
@@ -281,7 +275,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            // ✨ YAHAN BADLAV HAI: "Target" text ke liye bhi suffix nahi dikhana
             .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage));
 
         targetText.raise();
@@ -291,28 +284,28 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', radius)
         .attr('fill', 'transparent')
         .style('cursor', 'pointer');
-        
+
     interactionElement.datum({ allTupleIds, value: totalValue });
-    
+
     return { viz: svg.node(), interactionElement, allTupleIds };
 }
 
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
-    
+
     if (!content) {
         console.error('Content div not found!');
         return { viz: null };
     }
-    
+
     content.innerHTML = '';
 
     const width = content.offsetWidth || content.clientWidth || 400;
     const height = content.offsetHeight || content.clientHeight || 300;
-    
+
     const result = await GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles);
-    
+
     if (result.viz) content.appendChild(result.viz);
     return result;
 }
@@ -331,7 +324,7 @@ window.onload = function() {
         const update = async () => {
             window._lockedFinalValues = null;
             [summaryData, encodingMap] = await Promise.all([
-                getSummaryDataTable(worksheet), 
+                getSummaryDataTable(worksheet),
                 getEncodingMap()
             ]);
             selectedMarks = await getSelection(worksheet, summaryData);
@@ -351,7 +344,7 @@ window.onload = function() {
                 }
             }, 150);
         });
-        
+
         const contentDiv = document.getElementById('content');
         if (contentDiv) resizeObserver.observe(contentDiv);
 
@@ -424,8 +417,8 @@ function getEncodedData(data, encodingMap) {
 }
 
 function getWorksheet() {
-    return tableau.extensions.worksheetContent 
-        ? tableau.extensions.worksheetContent.worksheet 
+    return tableau.extensions.worksheetContent
+        ? tableau.extensions.worksheetContent.worksheet
         : tableau.extensions.dashboardContent.dashboard.worksheets[0];
 }
 
@@ -444,7 +437,7 @@ async function getSelection(worksheet, allMarks) {
             });
         }
         return selectedMarksIds;
-    } catch (e) { 
-        return new Map(); 
+    } catch (e) {
+        return new Map();
     }
 }
