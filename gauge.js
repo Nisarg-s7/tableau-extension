@@ -335,6 +335,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   }
   
   content.innerHTML = '';
+
+  const cacheBust = new Date().getTime(); 
   
   const width = content.offsetWidth || content.clientWidth || 400;
   const height = content.offsetHeight || content.clientHeight || 300;
