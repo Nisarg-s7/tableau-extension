@@ -6,7 +6,6 @@ const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 YAHAN SE APNI SETTINGS BADALEN 👇
-// Tableau se aane wale config ko parse karke default values set karein
 let config = {};
 try {
     if (styles && styles.configJson) {
@@ -16,7 +15,6 @@ try {
     console.error("Error parsing config:", e);
 }
 
-// Agar Tableau se config nahi milta, toh ye default values istemal hongi
 const CONFIG = {
     measure: config.measure || "Sales",
     format: config.format || "#,##0.00",
@@ -24,23 +22,13 @@ const CONFIG = {
     decimalPlaces: config.decimalPlaces || 1,
     prefix: config.prefix || "",
     unit: config.unit || " KWh",
-    
-    // ✨ NAYA OPTION YAHAN ADD KIYA HAI ✨
-    // Agar aapka data Percentage hai (0 se 100 ke beech), toh ise TRUE karein.
-    // Agar aapka data Rupees/Dollar/KWh jaisa hai, toh ise FALSE rakhein.
     isPercentage: config.isPercentage || false 
 };
-// 👆 YAHAN SE SETTINGS KHATAM 👆
 
-// ✨ UPDATED FUNCTION ✨
-// Yeh function ab 'isPercentage' ke hisaab se format decide karega
 function formatNumber(value, isPercentage) {
-    // Agar isPercentage TRUE hai, toh sirf % lagao
     if (isPercentage) {
         return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
-
-    // Agar isPercentage FALSE hai, toh K/M suffix lagao (Purana logic)
     if (CONFIG.useSuffix) {
         if (value >= 1000000) {
             return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
@@ -48,91 +36,72 @@ function formatNumber(value, isPercentage) {
             return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
         }
     }
-    
-    // Agar koi suffix nahi, toh sirf unit (KWh, $, etc.) laga do
     return Math.round(value) + CONFIG.unit;
 }
 
-// MAIN GAUGE CHART FUNCTION
 async function GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles) {
     let valueKey = null;
     let targetKey = null;
     let totalValue, totalTarget, maxScale, allTupleIds;
 
-    if (window._lockedFinalValues) {
-        totalValue = window._lockedFinalValues.totalValue;
-        totalTarget = window._lockedFinalValues.totalTarget;
-        maxScale = window._lockedFinalValues.maxScale;
-        allTupleIds = window._lockedFinalValues.allTupleIds;
-        if (totalTarget > 0) targetKey = 'dummy'; 
-    } else {
-        const numericKeys = (data => {
-            if (!data || data.length === 0) return [];
-            const sample = data[0];
-            const keys = [];
-            for (const key in sample) {
-                if (key === 'tupleId') continue;
-                const arr = sample[key];
-                if (Array.isArray(arr) && arr.length > 0 && typeof arr[0].value === 'number') keys.push(key);
-            }
-            return keys;
-        })(encodedData);
-
-        if (numericKeys.length > 0) {
-            const foundTarget = numericKeys.find(k => k.toLowerCase().includes('target') || k.toLowerCase().includes('calc'));
-            if (numericKeys.includes(CONFIG.measure)) {
-                valueKey = CONFIG.measure;
-                targetKey = numericKeys.find(k => k !== CONFIG.measure);
-            } else if (foundTarget && numericKeys.length > 1) {
-                targetKey = foundTarget;
-                valueKey = numericKeys.find(k => k !== foundTarget);
-            } else if (numericKeys.length > 1) {
-                valueKey = numericKeys[0];
-                targetKey = numericKeys[1];
-            } else {
-                valueKey = numericKeys[0];
-                targetKey = null;
-            }
+    // ✨ CACHING HATA DIYA HAI ✨
+    // Ab har baar naye values calculate honge
+    
+    const numericKeys = (data => {
+        if (!data || data.length === 0) return [];
+        const sample = data[0];
+        const keys = [];
+        for (const key in sample) {
+            if (key === 'tupleId') continue;
+            const arr = sample[key];
+            if (Array.isArray(arr) && arr.length > 0 && typeof arr[0].value === 'number') keys.push(key);
         }
+        return keys;
+    })(encodedData);
 
-        if (!valueKey) return { viz: null };
-
-        totalValue = 0;
-        totalTarget = 0;
-        allTupleIds = [];
-        
-        encodedData.forEach(row => {
-            totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
-            if (targetKey) {
-                totalTarget += parseFloat(row[targetKey]?.[0]?.value || 0);
-            }
-            if (row.tupleId) allTupleIds.push(row.tupleId);
-        });
-
-        // ✨ SMART LOGIC YAHAN HAI ✨
-        // Yeh automatically detect karega ki scale kya honi chahiye
-        if (CONFIG.isPercentage) {
-            // Agar Percentage hai, to scale hamesha 100 hogi
-            maxScale = 100;
+    if (numericKeys.length > 0) {
+        const foundTarget = numericKeys.find(k => k.toLowerCase().includes('target') || k.toLowerCase().includes('calc'));
+        if (numericKeys.includes(CONFIG.measure)) {
+            valueKey = CONFIG.measure;
+            targetKey = numericKeys.find(k => k !== CONFIG.measure);
+        } else if (foundTarget && numericKeys.length > 1) {
+            targetKey = foundTarget;
+            valueKey = numericKeys.find(k => k !== foundTarget);
+        } else if (numericKeys.length > 1) {
+            valueKey = numericKeys[0];
+            targetKey = numericKeys[1];
         } else {
-            // Agar Number hai (KWh/Rupees), to value ke aadhar par scale banegi
-            if (totalTarget > 0) {
-                const rawMax = totalTarget * 1.25;
-                const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-                maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-            } else {
-                const rawMax = totalValue * 1.4;
-                const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-                maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-            }
+            valueKey = numericKeys[0];
+            targetKey = null;
         }
+    }
 
-        window._lockedFinalValues = {
-            totalValue,
-            totalTarget,
-            maxScale,
-            allTupleIds
-        };
+    if (!valueKey) return { viz: null };
+
+    totalValue = 0;
+    totalTarget = 0;
+    allTupleIds = [];
+    
+    encodedData.forEach(row => {
+        totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
+        if (targetKey) {
+            totalTarget += parseFloat(row[targetKey]?.[0]?.value || 0);
+        }
+        if (row.tupleId) allTupleIds.push(row.tupleId);
+    });
+
+    if (CONFIG.isPercentage) {
+        maxScale = 100;
+    } else {
+        if (totalTarget > 0) {
+            const rawMax = totalTarget * 1.25;
+            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+        } else {
+            const rawMax = totalValue * 1.4;
+            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+        }
     }
 
     width = Math.max(width, 100);
@@ -183,7 +152,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('d', arcGen({ startAngle, endAngle: currentAngle + 0.03 }))
         .attr('fill', palette[0]);
 
-    // Ticks
     const numLabels = 5;
     for (let i = 0; i <= numLabels; i++) {
         const f = i / numLabels;
@@ -211,11 +179,9 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(9, radius * 0.15) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            // ✨ YAHAN BHI UPDATE ✨
             .text(formatNumber(f * maxScale, CONFIG.isPercentage));
     }
 
-    // Target line
     if (targetKey && totalTarget > 0) {
         const tAngle = startAngle + (Math.min(totalTarget / maxScale, 1) * totalRange);
         chartGroup.append('line')
@@ -228,7 +194,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .attr('stroke-linecap', 'round');
     }
 
-    // Needle
     const needleGroup = chartGroup.append('g')
         .attr('transform', `rotate(${(currentAngle * 180 / Math.PI)})`);
     const needleLen = radius * 0.85;
@@ -246,7 +211,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // Animated Value
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.30)
         .attr('text-anchor', 'middle')
@@ -255,7 +219,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-size', Math.max(16, radius * 0.25) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        // ✨ YAHAN BHI UPDATE ✨
         .text(CONFIG.prefix + formatNumber(totalValue, CONFIG.isPercentage) + CONFIG.unit);
     valueText.raise();
 
@@ -274,7 +237,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     }
     requestAnimationFrame(animateValue);
 
-    // Percentage Text (Yeh hamesha percentage dikhayega achievement ke liye)
     let percentageDisplay = 0;
     if (totalTarget > 0) {
         const actualPercentage = (totalValue / totalTarget) * 100;
@@ -293,7 +255,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .text(`${percentageDisplay.toFixed(1)}% achieved`);
     percentageText.raise();
 
-    // Target Text
     if (targetKey && totalTarget > 0) {
         const targetText = chartGroup.append('text')
             .attr('y', radius * 0.85)
@@ -303,7 +264,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            // ✨ YAHAN BHI UPDATE ✨
             .text('Target: ' + formatNumber(totalTarget, CONFIG.isPercentage));
 
         targetText.raise();
@@ -319,7 +279,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     return { viz: svg.node(), interactionElement, allTupleIds };
 }
 
-// RENDER
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -340,7 +299,6 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     return result;
 }
 
-// INIT
 window.onload = function() {
     tableau.extensions.initializeAsync().then(async () => {
         window._lockedFinalValues = null;
@@ -392,7 +350,6 @@ window.onload = function() {
     });
 };
 
-// HELPERS (Inmein koi change nahi hai)
 async function getEncodingMap() {
     const worksheet = getWorksheet();
     const visualSpec = await worksheet.getVisualSpecificationAsync();
