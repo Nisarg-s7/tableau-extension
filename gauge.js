@@ -18,20 +18,32 @@ try {
 const CONFIG = {
     measure: config.measure || "Sales",
     format: config.format || "#,##0.00",
-    useSuffix: config.useSuffix !== false,
+    // ✨ YEH LINE CHANGE KI HAI ✨
+    // Ise 'true' karne par 'K' aur 'M' lagega, 'false' karne par nahi lagega.
+    useSuffix: false, 
     decimalPlaces: config.decimalPlaces || 1,
     prefix: config.prefix || "",
     unit: config.unit || " KWh",
     isPercentage: config.isPercentage || false 
 };
 
+// ✨ YEH FUNCTION UPDATE KIYA HAI ✨
 function formatNumber(value, isPercentage = CONFIG.isPercentage) {
+    // Agar value number nahi hai, toh 0 maan lo
     value = Number(value) || 0;
 
+    // Agar percentage mode hai, toh % laga do
     if (isPercentage) {
         return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
 
+    // ✨ YEH LOGIC CHANGE KIYA HAI ✨
+    // Agar aap suffixes nahi chahte, toh bas number format karke return karo
+    if (!CONFIG.useSuffix) {
+        return (CONFIG.prefix || "") + value.toFixed(CONFIG.decimalPlaces) + (CONFIG.unit || "");
+    }
+
+    // Agar aap suffixes chahte hain, toh purana logic yahan hai
     let formattedValue;
 
     if (CONFIG.useSuffix) {
@@ -49,14 +61,12 @@ function formatNumber(value, isPercentage = CONFIG.isPercentage) {
     return (CONFIG.prefix || "") + formattedValue + (CONFIG.unit || "");
 }
 
+
 async function GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles) {
     let valueKey = null;
     let targetKey = null;
     let totalValue, totalTarget, maxScale, allTupleIds;
 
-    // ✨ CACHING HATA DIYA HAI ✨
-    // Ab har baar naye values calculate honge
-    
     const numericKeys = (data => {
         if (!data || data.length === 0) return [];
         const sample = data[0];
@@ -99,20 +109,20 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         }
         if (row.tupleId) allTupleIds.push(row.tupleId);
     });
-if (CONFIG.isPercentage) {
-    maxScale = 100;
-} else {
-    const rawMax = totalTarget > 0
-        ? Math.max(totalTarget * 1.25, totalValue * 1.1)
-        : totalValue * 1.4;
 
-    if (rawMax > 0) {
-        const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-        maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+    if (CONFIG.isPercentage) {
+        maxScale = 100;
     } else {
-        maxScale = 1;
+        if (totalTarget > 0) {
+            const rawMax = totalTarget * 1.25;
+            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+        } else {
+            const rawMax = totalValue * 1.4;
+            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+        }
     }
-}
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
