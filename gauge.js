@@ -190,7 +190,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     chartGroup.append('circle').attr('r', Math.max(3, radius * 0.06)).attr('fill', '#333');
     chartGroup.append('circle').attr('r', Math.max(1.5, radius * 0.03)).attr('fill', '#fff');
 
-    // Animated Value
+    // ANIMATED VALUE
     const valueText = chartGroup.append('text').attr('y', radius * 0.30).attr('text-anchor', 'middle').attr('dominant-baseline', 'middle').style('font-family', 'Arial, sans-serif').style('font-size', Math.max(16, radius * 0.25) + 'px').style('font-weight', 'bold').style('fill', palette[0]).text(formatNumber(0, isPercentage) + CONFIG.unit);
     valueText.raise();
     const animationDuration = 1000;
