@@ -101,10 +101,12 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     });
 
     if (CONFIG.isPercentage) {
-        maxScale = 100;
-    } else {
-        maxScale = totalTarget > 0 ? totalTarget : (totalValue > 0 ? totalValue : 100);
-    }
+    maxScale = 100;
+} else {
+    const rawMax = (Math.max(totalValue, totalTarget) * 1.2) || 100;
+    const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+    maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+}
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
@@ -139,11 +141,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
 
-    const achievedPct = totalTarget > 0
-        ? (totalValue / totalTarget) * 100
-        : (totalValue > 0 ? 100 : 0);
-    const valueFraction = Math.min(Math.max(achievedPct / 100, 0), 1);
-    const currentAngle = startAngle + (valueFraction * totalRange);
+const valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
+const currentAngle = startAngle + (valueFraction * totalRange);
 
     const arcGen = d3.arc()
         .innerRadius(radius * 0.7)
@@ -249,7 +248,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     let percentageDisplay = 0;
     if (totalTarget > 0) {
-        const actualPercentage = (totalValue / totalTarget) * 100;
         percentageDisplay = Math.min(actualPercentage, 100);
     } else {
         percentageDisplay = totalValue > 0 ? 100 : 0;
