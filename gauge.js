@@ -228,7 +228,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-size', Math.max(9, radius * 0.15) + 'px')
         .style('fill', '#333')
         .style('font-weight', 'bold')
-       .text(formatNumber(f * maxScale) + CONFIG.unit);
+       .text(formatNumber(f * maxScale));
+
   }
 
   // Target line
