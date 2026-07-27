@@ -33,6 +33,7 @@ const CONFIG = {
 
 function formatNumber(value) {
     // Agar suffix use nahi karna to sirf number return karo
+    
     if (!CONFIG.useSuffix) {
         // Number ko specific decimal places tak format karo
         // Yahan UNIT laga rahe hain
@@ -51,7 +52,8 @@ function formatNumber(value) {
 }
 
 // MAIN GAUGE CHART FUNCTION
-async function GaugeChart(encodedData, encodingMap, width, height, selectedTupleIds, styles) {
+// MAIN GAUGE CHART FUNCTION
+async function GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles) {
   
   let valueKey = null;
   let targetKey = null;
@@ -106,25 +108,33 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
       encodedData.forEach(row => {
         totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
         
-        // *** YEH HISSA BADLA GAYA HAI (THIS PART HAS BEEN CHANGED) ***
         // Agar targetKey milta hai, toh sirf uski pehli value lo. Agar nahi, toh kuch mat karo.
         if (targetKey) {
-            totalTarget = parseFloat(row[targetKey]?.[0]?.value || 0);
+            totalTarget += parseFloat(row[targetKey]?.[0]?.value || 0);
         }
-        // *** YAHAN TAK BADLAV KHATAM (CHANGE ENDS HERE) ***
-
+        
         if (row.tupleId) allTupleIds.push(row.tupleId);
       });
 
+      // *** YEH NAYA LOGIC HAI - PERCENTAGE YA NUMBER DETECT KARNA ***
+      // Agar totalValue 100 se chhota hai, toh hum maan lenge ki yeh percentage hai.
+      const isPercentage = totalValue < 100;
+
       // Calculate scale
-      if (totalTarget > 0) {
-          const rawMax = totalTarget * 1.25;
-          const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-          maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+      if (isPercentage) {
+          // Agar data percentage hai, toh max scale 100 hoga.
+          maxScale = 100;
       } else {
-          const rawMax = totalValue * 1.4;
-          const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-          maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+          // Agar data number hai (jaise KWh), toh purana logic chalega.
+          if (totalTarget > 0) {
+              const rawMax = totalTarget * 1.25;
+              const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+              maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+          } else {
+              const rawMax = totalValue * 1.4;
+              const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+              maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+          }
       }
 
       // Lock values
