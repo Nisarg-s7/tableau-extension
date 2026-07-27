@@ -83,7 +83,9 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
       totalValue = 0;
       totalTarget = 0;
       allTupleIds = [];
-      
+      // Yeh line add karein data check karne ke liye
+console.log("Data Received:", encodedData); 
+console.log("Encoding Map:", encodingMap);
       encodedData.forEach(row => {
         totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
         if (targetKey) {
