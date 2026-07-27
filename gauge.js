@@ -248,6 +248,7 @@ const currentAngle = startAngle + (valueFraction * totalRange);
 
     let percentageDisplay = 0;
     if (totalTarget > 0) {
+          const actualPercentage = (totalValue / totalTarget) * 100;   
         percentageDisplay = Math.min(actualPercentage, 100);
     } else {
         percentageDisplay = totalValue > 0 ? 100 : 0;
