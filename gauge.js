@@ -5,7 +5,6 @@
 const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
-// 👇 YAHAN SE APNI SETTINGS BADALEN 👇
 let config = {};
 try {
     if (styles && styles.configJson) {
@@ -26,25 +25,27 @@ const CONFIG = {
     isPercentage: config.isPercentage || false
 };
 
-// ✨ includeUnit parameter add kiya hai (default true). false dene se KWh/unit nahi lagega.
-function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true) {
+// ✨ 5th parameter "decimals" add kiya. Pass karoge toh wahi use hoga, warna CONFIG wala.
+function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true, decimals = null) {
     value = Number(value) || 0;
+    const dMain = (decimals != null) ? decimals : CONFIG.decimalPlaces;
+    const dVal  = (decimals != null) ? decimals : CONFIG.decimalPlacesForAchievedValue;
 
     if (isPercentage) {
-        return value.toFixed(CONFIG.decimalPlaces) + "%";
+        return value.toFixed(dMain) + "%";
     }
 
     if (!useSuffix) {
-        return value.toFixed(CONFIG.decimalPlaces);
+        return value.toFixed(dMain);   // 👈 full value, no K/M
     }
 
     let formattedValue;
     if (Math.abs(value) >= 1000000) {
-        formattedValue = (value / 1000000).toFixed(CONFIG.decimalPlacesForAchievedValue) + "M";
+        formattedValue = (value / 1000000).toFixed(dVal) + "M";
     } else if (Math.abs(value) >= 1000) {
-        formattedValue = (value / 1000).toFixed(CONFIG.decimalPlacesForAchievedValue) + "K";
+        formattedValue = (value / 1000).toFixed(dVal) + "K";
     } else {
-        formattedValue = value.toFixed(CONFIG.decimalPlacesForAchievedValue);
+        formattedValue = value.toFixed(dVal);
     }
 
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
@@ -99,7 +100,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         if (row.tupleId) allTupleIds.push(row.tupleId);
     });
 
-    // ✨ BADLAV: maxScale = target (taaki 100% position = target ho, ticks pe actual value aaye)
     if (CONFIG.isPercentage) {
         maxScale = 100;
     } else {
@@ -139,7 +139,6 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
 
-    // ✨ valueFraction ab achieved% ke basis pe (maxScale=target hone se yeh achieved/100 ke barabar hi hai)
     const achievedPct = totalTarget > 0
         ? (totalValue / totalTarget) * 100
         : (totalValue > 0 ? 100 : 0);
@@ -186,8 +185,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(9, radius * 0.15) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            // ✨ Ticks pe ACTUAL VALUE (no %, no KWh)
-            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage));
+            // ✨ TICKS: full value, no .0  (last 0 = zero decimals)
+            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 0));
     }
 
     if (targetKey && totalTarget > 0) {
@@ -227,8 +226,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-size', Math.max(16, radius * 0.25) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        // ✨ Center value: K/M suffix rahega, lekin KWh (unit) GAYAB (last false)
-        .text(formatNumber(totalValue, true, CONFIG.isPercentage, false));
+        // ✨ CENTER (actual): FULL value, no K/M, no .0  (useSuffix=false, decimals=0)
+        .text(formatNumber(totalValue, false, CONFIG.isPercentage, false, 0));
 
     valueText.raise();
 
@@ -241,8 +240,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
 
-        // ✨ Yahan bhi KWh gayab
-        valueText.text(formatNumber(currentValue, true, CONFIG.isPercentage, false));
+        // ✨ animation me bhi full value
+        valueText.text(formatNumber(currentValue, false, CONFIG.isPercentage, false, 0));
 
         if (progress < 1) requestAnimationFrame(animateValue);
     }
@@ -275,7 +274,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage));
+            // ✨ TARGET: no .0
+            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage, true, 0));
 
         targetText.raise();
     }
