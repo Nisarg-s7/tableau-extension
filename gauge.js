@@ -261,8 +261,10 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     .attr('r', Math.max(1.5, radius * 0.03))
     .attr('fill', '#fff');
 
-  // ANIMATED VALUE
-   const valueText = chartGroup.append('text')
+ // ... (code ka pehla hissa)
+
+// ANIMATED VALUE
+const valueText = chartGroup.append('text')
     .attr('y', radius * 0.30)
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
@@ -270,39 +272,35 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     .style('font-size', Math.max(16, radius * 0.25) + 'px')
     .style('font-weight', 'bold')
     .style('fill', palette[0])
-    .text(formatNumber(0) + CONFIG.unit);
+    // CHANGE YAHAN HAI: formatNumber(0) ki jagah totalValue istemal karein
+    .text(CONFIG.prefix + formatNumber(totalValue) + CONFIG.unit);
 valueText.raise();
 
-  
-  const animationDuration = 1000;
-  const startTime = Date.now();
-  
-  function animateValue() {
+const animationDuration = 1000;
+const startTime = Date.now();
+
+function animateValue() {
     const elapsed = Date.now() - startTime;
     const progress = Math.min(elapsed / animationDuration, 1);
     const easeProgress = 1 - Math.pow(1 - progress, 3);
     const currentValue = totalValue * easeProgress;
-    
-    valueText.text(CONFIG.prefix + formatNumber(currentValue) + CONFIG.unit);
+
+    // CHANGE YAHAN HAI: formatNumber(currentValue) ki jagah totalValue istemal karein
+    valueText.text(CONFIG.prefix + formatNumber(totalValue) + CONFIG.unit);
 
     if (progress < 1) requestAnimationFrame(animateValue);
-  }
-  requestAnimationFrame(animateValue);
+}
+requestAnimationFrame(animateValue);
 
-// Percentage
-let actualPercentage = 0;
-let percentageDisplay = 0; // Naya variable
-
+// Percentage (Yeh sahi hai, ismein koi change nahi)
+let percentageDisplay = 0;
 if (totalTarget > 0) {
-    actualPercentage = (totalValue / totalTarget) * 100;
-    // Agar percentage 100 se zyada hai, toh 100 dikhayein
+    const actualPercentage = (totalValue / totalTarget) * 100;
     percentageDisplay = Math.min(actualPercentage, 100);
 } else {
-    actualPercentage = totalValue > 0 ? 100 : 0;
-    percentageDisplay = actualPercentage;
+    percentageDisplay = totalValue > 0 ? 100 : 0;
 }
-
-  const percentageText = chartGroup.append('text')
+const percentageText = chartGroup.append('text')
     .attr('y', radius * 0.70)
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
@@ -310,14 +308,11 @@ if (totalTarget > 0) {
     .style('font-size', Math.max(10, radius * 0.15) + 'px')
     .style('font-weight', 'bold')
     .style('fill', '#666')
-    .text(`${percentageDisplay.toFixed(1)}% achieved`); // Yahan percentageDisplay use karo
-
+    .text(`${percentageDisplay.toFixed(1)}% achieved`);
 percentageText.raise();
 
-// Debug: Console mein sahi value check karo
-console.log(`Value: ${totalValue}, Target: ${totalTarget}, Percentage: ${actualPercentage}, Display: ${percentageDisplay}`);
-
-  // Target
+// Target
+// CHANGE YAHAN HAI: formatNumber(totalTarget) sahi hai, lekin poora line yahan hai
 if (targetKey && totalTarget > 0) {
     const targetText = chartGroup.append('text')
       .attr('y', radius * 0.85)
@@ -327,11 +322,12 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-.text('Target: ' + formatNumber(totalTarget));
+      .text('Target: ' + formatNumber(totalTarget)); // Yahan totalTarget sahi hai
 
     targetText.raise();
 }
 
+// ... (code ka baaki hissa)
   // Interaction
   const interactionElement = chartGroup.append('circle')
     .attr('r', radius)
