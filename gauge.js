@@ -35,7 +35,8 @@ function formatNumber(value) {
     // Agar suffix use nahi karna to sirf number return karo
     if (!CONFIG.useSuffix) {
         // Number ko specific decimal places tak format karo
-        return value.toFixed(CONFIG.decimalPlaces);
+        // Yahan UNIT laga rahe hain
+        return value.toFixed(CONFIG.decimalPlaces) + CONFIG.unit; 
     }
 
     // Agar suffix use karna to purana logic chalega
@@ -44,7 +45,8 @@ function formatNumber(value) {
     } else if (value >= 1000) {
         return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
     } else {
-        return Math.round(value);
+        // Yahan bhi UNIT laga rahe hain
+        return Math.round(value) + CONFIG.unit; 
     }
 }
 
@@ -279,13 +281,13 @@ valueText.raise();
   requestAnimationFrame(animateValue);
 
   // Percentage
-  let actualPercentage = 0;
-  if (totalTarget > 0) {
-      actualPercentage = (totalValue / totalTarget) * 100;
-  } else {
-      actualPercentage = totalValue > 0 ? 100 : 0; 
-  }
-
+let actualPercentage = 0;
+if (totalTarget > 0) {
+    // Math.min ka istemal karein taaki percentage 100 se zyada na jaye
+    actualPercentage = Math.min((totalValue / totalTarget) * 100, 100); 
+} else {
+    actualPercentage = totalValue > 0 ? 100 : 0; 
+}
   const percentageText = chartGroup.append('text')
     .attr('y', radius * 0.70)
     .attr('text-anchor', 'middle')
