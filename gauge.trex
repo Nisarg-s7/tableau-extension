@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
   
-  <worksheet-extension id="com.tableau.extension.demo.bar" extension-version="1.0.0">
-    
+<worksheet-extension id="com.tableau.extension.gauge" extension-version="1.0.0">    
     <default-locale>en_US</default-locale>
     
     <name resource-id="name"/>
