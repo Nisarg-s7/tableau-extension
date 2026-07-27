@@ -6,26 +6,39 @@ const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 YAHAN SE APNI SETTINGS BADALEN 👇
-// Default Config
-const DEFAULT_CONFIG = {
-    measure: "Sales", 
-    format: "#,##0.00", 
-    useSuffix: true, 
-    decimalPlaces: 1, 
-    prefix: "", 
-    unit: " KWh" 
-};
+// Tableau se aane wale config ko parse karke default values set karein
+let config = {};
+try {
+    // 'styles' argument se config string milta hai
+    if (styles && styles.configJson) {
+        config = JSON.parse(styles.configJson);
+    }
+} catch (e) {
+    console.error("Error parsing config:", e);
+}
 
-// Load Settings from LocalStorage or use Default
-let CONFIG = JSON.parse(localStorage.getItem('gaugeConfig')) || DEFAULT_CONFIG;
+// Agar Tableau se config nahi milta, toh ye default values istemal hongi
+const CONFIG = {
+    measure: config.measure || "Sales", // Default measure
+    format: config.format || "#,##0.00", // Default format (custom number pattern)
+    useSuffix: config.useSuffix !== false, // Default true (K/M suffix dikhayega)
+    decimalPlaces: config.decimalPlaces || 1, // Kitne decimal place dikhayein
+    prefix: config.prefix || "", // Value ke shuru mein lagne wala symbol (jaise ₹)
+    unit: config.unit || " KWh" // Unit label (jaise KWh, Litre, etc.)
+};
 // 👆 YAHAN SE SETTINGS KHATAM 👆
+
 
 // Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
+    // Agar suffix use nahi karna to sirf number return karo
     if (!CONFIG.useSuffix) {
+        // Number ko specific decimal places tak format karo
         return value.toFixed(CONFIG.decimalPlaces);
     }
+
+    // Agar suffix use karna to purana logic chalega
     if (value >= 1000000) {
         return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
     } else if (value >= 1000) {
@@ -42,6 +55,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
   let targetKey = null;
   let totalValue, totalTarget, maxScale, allTupleIds;
 
+  // Check if values are locked (prevents recalculation on resize)
   if (window._lockedFinalValues) {
     totalValue = window._lockedFinalValues.totalValue;
     totalTarget = window._lockedFinalValues.totalTarget;
@@ -49,6 +63,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
     allTupleIds = window._lockedFinalValues.allTupleIds;
     if (totalTarget > 0) targetKey = 'dummy'; 
   } else {
+      // Auto-detect numeric fields
       const numericKeys = (data => {
         if (!data || data.length === 0) return [];
         const sample = data[0];
@@ -63,6 +78,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 
       if (numericKeys.length > 0) {
           const foundTarget = numericKeys.find(k => k.toLowerCase().includes('target') || k.toLowerCase().includes('calc'));
+          // Agar CONFIG.measure ka naam numeric keys mein hai, toh use valueKey banao
           if (numericKeys.includes(CONFIG.measure)) {
               valueKey = CONFIG.measure;
               targetKey = numericKeys.find(k => k !== CONFIG.measure);
@@ -80,20 +96,25 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedTuple
 
       if (!valueKey) return { viz: null };
 
+      // Aggregate data
       totalValue = 0;
       totalTarget = 0;
       allTupleIds = [];
-      // Yeh line add karein data check karne ke liye
-console.log("Data Received:", encodedData); 
-console.log("Encoding Map:", encodingMap);
+      
       encodedData.forEach(row => {
         totalValue += parseFloat(row[valueKey]?.[0]?.value || 0);
+        
+        // *** YEH HISSA BADLA GAYA HAI (THIS PART HAS BEEN CHANGED) ***
+        // Agar targetKey milta hai, toh sirf uski pehli value lo. Agar nahi, toh kuch mat karo.
         if (targetKey) {
             totalTarget = parseFloat(row[targetKey]?.[0]?.value || 0);
         }
+        // *** YAHAN TAK BADLAV KHATAM (CHANGE ENDS HERE) ***
+
         if (row.tupleId) allTupleIds.push(row.tupleId);
       });
 
+      // Calculate scale
       if (totalTarget > 0) {
           const rawMax = totalTarget * 1.25;
           const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
@@ -104,6 +125,7 @@ console.log("Encoding Map:", encodingMap);
           maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
       }
 
+      // Lock values
       window._lockedFinalValues = {
           totalValue: totalValue,
           totalTarget: totalTarget,
@@ -112,16 +134,27 @@ console.log("Encoding Map:", encodingMap);
       };
   }
 
+  // Ensure minimum dimensions
   width = Math.max(width, 100);
   height = Math.max(height, 100);
 
+  // Dynamic sizing
   const minDim = Math.min(width, height);
-  const margin = { top: minDim * 0.12, right: minDim * 0.15, bottom: minDim * 0.12, left: minDim * 0.15 };
+  const margin = { 
+    top: minDim * 0.12, 
+    right: minDim * 0.15, 
+    bottom: minDim * 0.12, 
+    left: minDim * 0.15 
+  };
   
   const cx = width / 2;
   const cy = height / 2;
-  const radius = Math.min((width - margin.left - margin.right) / 2.6, (height - margin.top - margin.bottom) / 2.15);
+  const radius = Math.min(
+    (width - margin.left - margin.right) / 2.6,
+    (height - margin.top - margin.bottom) / 2.15
+  );
 
+  // Create SVG
   const svg = d3.create('svg')
     .attr('class', tableau.ClassNameKey.Worksheet)
     .attr('width', '100%')
@@ -280,105 +313,6 @@ if (targetKey && totalTarget > 0) {
     targetText.raise();
 }
 
-  // 👉 SETTINGS ICON (SVG)
-  const settingsIcon = chartGroup.append('g')
-    .attr('transform', `translate(${radius * 0.8}, ${-radius * 0.8})`)
-    .style('cursor', 'pointer');
-  
-  settingsIcon.append('circle')
-    .attr('r', 15)
-    .attr('fill', '#f0f0f0')
-    .attr('stroke', '#ccc')
-    .attr('stroke-width', 1);
-  
-  settingsIcon.append('path')
-    .attr('d', 'M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.33-.07.65-.07.97 0 .32.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.24 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66z')
-    .attr('fill', '#555')
-    .attr('transform', 'scale(0.8) translate(6,6)');
-
-  // 👉 SETTINGS MODAL (HTML/CSS)
-  const modal = document.createElement('div');
-  modal.id = 'gaugeSettingsModal';
-  modal.style.cssText = `
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  `;
-  
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    width: 300px;
-    font-family: Arial, sans-serif;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  `;
-  
-  modalContent.innerHTML = `
-    <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom:10px;">& Gauge Settings</h3>
-    
-    <label style="display:block; margin-bottom:5px; font-weight:bold;">Decimal Places</label>
-    <input type="number" id="setDecimal" value="${CONFIG.decimalPlaces}" min="0" max="5" style="width:100%; padding:5px; margin-bottom:15px; box-sizing:border-box;">
-    
-    <label style="display:block; margin-bottom:5px; font-weight:bold;">Unit Label</label>
-    <input type="text" id="setUnit" value="${CONFIG.unit}" style="width:100%; padding:5px; margin-bottom:15px; box-sizing:border-box;">
-    
-    <label style="display:block; margin-bottom:5px; font-weight:bold;">Prefix (e.g., ₹, $)</label>
-    <input type="text" id="setPrefix" value="${CONFIG.prefix}" style="width:100%; padding:5px; margin-bottom:15px; box-sizing:border-box;">
-    
-    <label style="display:flex; align-items:center; justify-content:space-between;">
-      <span style="font-weight:bold;">Use Suffix (K/M)</span>
-      <input type="checkbox" id="setSuffix" ${CONFIG.useSuffix ? 'checked' : ''} style="transform:scale(1.2);">
-    </label>
-    
-    <div style="margin-top:20px; text-align:right;">
-      <button onclick="resetSettings()" style="padding:5px 10px; cursor:pointer; background:#eee; border:1px solid #ccc;">Reset</button>
-      <button onclick="saveSettings()" style="padding:5px 10px; cursor:pointer; background:#007bff; color:white; border:none; margin-left:5px;">Save</button>
-    </div>
-  `;
-  
-  modal.appendChild(modalContent);
-  svg.node().parentNode.appendChild(modal);
-
-  // 👉 EVENT LISTENERS
-  settingsIcon.on('click', () => {
-    document.getElementById('gaugeSettingsModal').style.display = 'flex';
-  });
-  
-  modal.on('click', (e) => {
-    if (e.target === modal) {
-      modal.style.display = 'none';
-    }
-  });
-
-  // 👉 GLOBAL FUNCTIONS FOR MODAL
-  window.saveSettings = function() {
-    CONFIG.decimalPlaces = parseInt(document.getElementById('setDecimal').value);
-    CONFIG.unit = document.getElementById('setUnit').value;
-    CONFIG.prefix = document.getElementById('setPrefix').value;
-    CONFIG.useSuffix = document.getElementById('setSuffix').checked;
-    
-    localStorage.setItem('gaugeConfig', JSON.stringify(CONFIG));
-    
-    // Redraw chart
-    renderViz(encodedData, encodingMap, selectedTupleIds, styles);
-    
-    document.getElementById('gaugeSettingsModal').style.display = 'none';
-  };
-  
-  window.resetSettings = function() {
-    CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-    localStorage.removeItem('gaugeConfig');
-    
-    // Reload page to reset
-    location.reload();
-  };
-
   // Interaction
   const interactionElement = chartGroup.append('circle')
     .attr('r', radius)
@@ -401,6 +335,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
   }
   
   content.innerHTML = '';
+
+  const cacheBust = new Date().getTime(); 
   
   const width = content.offsetWidth || content.clientWidth || 400;
   const height = content.offsetHeight || content.clientHeight || 300;
