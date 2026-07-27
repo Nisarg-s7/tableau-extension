@@ -328,7 +328,7 @@ if (targetKey && totalTarget > 0) {
       .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
       .style('fill', '#999')
-      .text('Target: ' + formatNumber(totalTarget) + CONFIG.unit);
+.text('Target: ' + formatNumber(totalTarget));
 
     targetText.raise();
 }
