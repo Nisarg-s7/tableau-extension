@@ -6,6 +6,7 @@ const backgroundColor = tinycolor('white');
 const palette = ['#5B6FD8', '#D3D3D3', '#4e79a7', '#f28e2c'];
 
 // 👇 YAHAN SE APNI SETTINGS BADALEN 👇
+// Tableau se aane wale config ko parse karke default values set karein
 let config = {};
 try {
     if (styles && styles.configJson) {
