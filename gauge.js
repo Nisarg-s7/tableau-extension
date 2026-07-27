@@ -25,18 +25,28 @@ const CONFIG = {
     isPercentage: config.isPercentage || false 
 };
 
-function formatNumber(value, isPercentage) {
+function formatNumber(value, isPercentage = CONFIG.isPercentage) {
+    value = Number(value) || 0;
+
     if (isPercentage) {
         return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
+
+    let formattedValue;
+
     if (CONFIG.useSuffix) {
-        if (value >= 1000000) {
-            return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
-        } else if (value >= 1000) {
-            return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+        if (Math.abs(value) >= 1000000) {
+            formattedValue = (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
+        } else if (Math.abs(value) >= 1000) {
+            formattedValue = (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+        } else {
+            formattedValue = value.toFixed(CONFIG.decimalPlaces);
         }
+    } else {
+        formattedValue = value.toFixed(CONFIG.decimalPlaces);
     }
-    return Math.round(value) + CONFIG.unit;
+
+    return (CONFIG.prefix || "") + formattedValue + (CONFIG.unit || "");
 }
 
 async function GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles) {
@@ -89,20 +99,20 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         }
         if (row.tupleId) allTupleIds.push(row.tupleId);
     });
+if (CONFIG.isPercentage) {
+    maxScale = 100;
+} else {
+    const rawMax = totalTarget > 0
+        ? Math.max(totalTarget * 1.25, totalValue * 1.1)
+        : totalValue * 1.4;
 
-    if (CONFIG.isPercentage) {
-        maxScale = 100;
+    if (rawMax > 0) {
+        const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+        maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
     } else {
-        if (totalTarget > 0) {
-            const rawMax = totalTarget * 1.25;
-            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-        } else {
-            const rawMax = totalValue * 1.4;
-            const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-            maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-        }
+        maxScale = 1;
     }
+}
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
