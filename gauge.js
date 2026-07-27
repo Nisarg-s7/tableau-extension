@@ -32,23 +32,22 @@ const CONFIG = {
 // Purani line hata di gayi hai: const CUSTOM_UNIT = " KW";
 
 function formatNumber(value) {
-    // Agar suffix use nahi karna to sirf number return karo
-    
-    if (!CONFIG.useSuffix) {
-        // Number ko specific decimal places tak format karo
-        // Yahan UNIT laga rahe hain
-        return value.toFixed(CONFIG.decimalPlaces) + CONFIG.unit; 
+    // Agar value 100 se chhota hai (jaise 85), toh use percentage maano
+    if (value < 100) {
+        return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
 
-    // Agar suffix use karna to purana logic chalega
-    if (value >= 1000000) {
-        return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
-    } else if (value >= 1000) {
-        return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
-    } else {
-        // Yahan bhi UNIT laga rahe hain
-        return Math.round(value) + CONFIG.unit; 
+    // Agar value 100 se bada hai (jaise 21600), toh K/M suffix lagao
+    if (CONFIG.useSuffix) {
+        if (value >= 1000000) {
+            return (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
+        }
     }
+    
+    // Agar suffix nahi lagana, toh sirf unit (KWh) laga do
+    return Math.round(value) + CONFIG.unit;
 }
 
 // MAIN GAUGE CHART FUNCTION
