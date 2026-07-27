@@ -18,44 +18,37 @@ try {
 const CONFIG = {
     measure: config.measure || "Sales",
     format: config.format || "#,##0.00",
-    // ✨ YEH LINE CHANGE KI HAI ✨
-    // Ise 'true' karne par 'K' aur 'M' lagega, 'false' karne par nahi lagega.
-    useSuffix: false, 
+    useSuffix: config.useSuffix !== false, // Agar true hai, toh K/M lagega. Agar false, toh nahi.
     decimalPlaces: config.decimalPlaces || 1,
+    // ✨ NAYI SETTING: Sirf "Achieved" value ke liye decimal places control karna
+    decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 1, 
     prefix: config.prefix || "",
     unit: config.unit || " KWh",
     isPercentage: config.isPercentage || false 
 };
 
 // ✨ YEH FUNCTION UPDATE KIYA HAI ✨
-function formatNumber(value, isPercentage = CONFIG.isPercentage) {
-    // Agar value number nahi hai, toh 0 maan lo
+// Ab yeh function alag-alag jagahon par alag-alag format de sakta hai
+function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage) {
     value = Number(value) || 0;
 
-    // Agar percentage mode hai, toh % laga do
     if (isPercentage) {
         return value.toFixed(CONFIG.decimalPlaces) + "%";
     }
 
-    // ✨ YEH LOGIC CHANGE KIYA HAI ✨
-    // Agar aap suffixes nahi chahte, toh bas number format karke return karo
-    if (!CONFIG.useSuffix) {
-        return (CONFIG.prefix || "") + value.toFixed(CONFIG.decimalPlaces) + (CONFIG.unit || "");
+    // Agar suffix nahi chahiye, toh bas number return karo
+    if (!useSuffix) {
+        return value.toFixed(CONFIG.decimalPlaces);
     }
 
-    // Agar aap suffixes chahte hain, toh purana logic yahan hai
+    // Agar suffix chahiye, toh purana logic yahan hai
     let formattedValue;
-
-    if (CONFIG.useSuffix) {
-        if (Math.abs(value) >= 1000000) {
-            formattedValue = (value / 1000000).toFixed(CONFIG.decimalPlaces) + "M";
-        } else if (Math.abs(value) >= 1000) {
-            formattedValue = (value / 1000).toFixed(CONFIG.decimalPlaces) + "K";
-        } else {
-            formattedValue = value.toFixed(CONFIG.decimalPlaces);
-        }
+    if (Math.abs(value) >= 1000000) {
+        formattedValue = (value / 1000000).toFixed(CONFIG.decimalPlacesForAchievedValue) + "M";
+    } else if (Math.abs(value) >= 1000) {
+        formattedValue = (value / 1000).toFixed(CONFIG.decimalPlacesForAchievedValue) + "K";
     } else {
-        formattedValue = value.toFixed(CONFIG.decimalPlaces);
+        formattedValue = value.toFixed(CONFIG.decimalPlacesForAchievedValue);
     }
 
     return (CONFIG.prefix || "") + formattedValue + (CONFIG.unit || "");
@@ -199,7 +192,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(9, radius * 0.15) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            .text(formatNumber(f * maxScale, CONFIG.isPercentage));
+            // ✨ YAHAN BADLAV HAI: Labels ke liye suffix nahi dikhana
+            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage));
     }
 
     if (targetKey && totalTarget > 0) {
@@ -239,7 +233,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-size', Math.max(16, radius * 0.25) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        .text(CONFIG.prefix + formatNumber(totalValue, CONFIG.isPercentage) + CONFIG.unit);
+        // ✨ YAHAN BADLAV HAI: "Achieved" value ke liye suffix dikhana
+        .text(CONFIG.prefix + formatNumber(totalValue, true, CONFIG.isPercentage) + CONFIG.unit);
     valueText.raise();
 
     const animationDuration = 1000;
@@ -251,7 +246,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
         
-        valueText.text(CONFIG.prefix + formatNumber(totalValue, CONFIG.isPercentage) + CONFIG.unit);
+        valueText.text(CONFIG.prefix + formatNumber(totalValue, true, CONFIG.isPercentage) + CONFIG.unit);
 
         if (progress < 1) requestAnimationFrame(animateValue);
     }
@@ -284,7 +279,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            .text('Target: ' + formatNumber(totalTarget, CONFIG.isPercentage));
+            // ✨ YAHAN BADLAV HAI: "Target" text ke liye bhi suffix nahi dikhana
+            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage));
 
         targetText.raise();
     }
