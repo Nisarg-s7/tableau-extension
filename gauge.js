@@ -35,9 +35,9 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
         return value.toFixed(dMain) + "%";
     }
 
-    if (!useSuffix) {
-        return value.toFixed(dMain);   // 👈 full value, no K/M
-    }
+   if (!useSuffix) {
+    return Number(value.toFixed(dMain)).toLocaleString('en-US');
+}
 
     let formattedValue;
     if (Math.abs(value) >= 1000000) {
