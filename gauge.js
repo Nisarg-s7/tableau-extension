@@ -290,14 +290,19 @@ valueText.raise();
   }
   requestAnimationFrame(animateValue);
 
-  // Percentage
+// Percentage
 let actualPercentage = 0;
+let percentageDisplay = 0; // Naya variable
+
 if (totalTarget > 0) {
-    // Math.min ka istemal karein taaki percentage 100 se zyada na jaye
-    actualPercentage = Math.min((totalValue / totalTarget) * 100, 100); 
+    actualPercentage = (totalValue / totalTarget) * 100;
+    // Agar percentage 100 se zyada hai, toh 100 dikhayein
+    percentageDisplay = Math.min(actualPercentage, 100);
 } else {
-    actualPercentage = totalValue > 0 ? 100 : 0; 
+    actualPercentage = totalValue > 0 ? 100 : 0;
+    percentageDisplay = actualPercentage;
 }
+
   const percentageText = chartGroup.append('text')
     .attr('y', radius * 0.70)
     .attr('text-anchor', 'middle')
@@ -306,9 +311,12 @@ if (totalTarget > 0) {
     .style('font-size', Math.max(10, radius * 0.15) + 'px')
     .style('font-weight', 'bold')
     .style('fill', '#666')
-    .text(`${actualPercentage.toFixed(1)}% achieved`);
+    .text(`${percentageDisplay.toFixed(1)}% achieved`); // Yahan percentageDisplay use karo
 
 percentageText.raise();
+
+// Debug: Console mein sahi value check karo
+console.log(`Value: ${totalValue}, Target: ${totalTarget}, Percentage: ${actualPercentage}, Display: ${percentageDisplay}`);
 
   // Target
 if (targetKey && totalTarget > 0) {
