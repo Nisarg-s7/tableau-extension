@@ -23,7 +23,7 @@ const CONFIG = {
     // ✨ NAYI SETTING: Sirf "Achieved" value ke liye decimal places control karna
     decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 1, 
     prefix: config.prefix || "",
-    unit: config.unit || " KWh",
+    unit: config.unit || " ",
     isPercentage: config.isPercentage || false 
 };
 
@@ -234,7 +234,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .style('font-weight', 'bold')
         .style('fill', palette[0])
         // ✨ YAHAN BADLAV HAI: "Achieved" value ke liye suffix dikhana
-        .text(CONFIG.prefix + formatNumber(totalValue, true, CONFIG.isPercentage) + CONFIG.unit);
+        .text(formatNumber(totalValue, true, CONFIG.isPercentage));
+
     valueText.raise();
 
     const animationDuration = 1000;
@@ -246,7 +247,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
         
-        valueText.text(CONFIG.prefix + formatNumber(totalValue, true, CONFIG.isPercentage) + CONFIG.unit);
+        valueText.text(formatNumber(totalValue, true, CONFIG.isPercentage));
+
 
         if (progress < 1) requestAnimationFrame(animateValue);
     }
