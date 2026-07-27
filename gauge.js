@@ -157,7 +157,7 @@ const currentAngle = startAngle + (valueFraction * totalRange);
         .attr('d', arcGen({ startAngle, endAngle: currentAngle + 0.03 }))
         .attr('fill', palette[0]);
 
-    const numLabels = 5;
+    const numLabels = 1;
     for (let i = 0; i <= numLabels; i++) {
         const f = i / numLabels;
         const angle = startAngle + (f * totalRange);
