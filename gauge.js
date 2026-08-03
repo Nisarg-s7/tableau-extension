@@ -34,7 +34,6 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
         return value.toFixed(dMain) + "%";
     }
 
-    // ✨ comma + fixed decimals (trailing .00 bhi rahega)
     if (!useSuffix) {
         return value.toLocaleString('en-US', {
             minimumFractionDigits: dMain,
@@ -52,6 +51,13 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
     }
 
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
+}
+
+// ✨ AUTO-FIT: number lamba ho ya box chhota ho, font khud shrink ho jayega
+function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
+    const len = String(text).length || 1;
+    const approx = maxWidth / (len * 0.62);  // Arial bold avg char width
+    return Math.max(minSize, Math.min(baseSize, approx));
 }
 
 
@@ -178,17 +184,18 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .attr('stroke', '#333')
             .attr('stroke-width', Math.max(1, radius * 0.02));
 
+        // ✨ TICK: auto-fit font
+        const tickStr = formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 2);
         chartGroup.append('text')
             .attr('x', labelR * x)
             .attr('y', labelR * y)
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', Math.max(9, radius * 0.15) + 'px')
+            .style('font-size', fitFontSize(tickStr, radius * 0.95, radius * 0.13) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            // ✨ TICKS: 2 decimals
-            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 2));
+            .text(tickStr);
     }
 
     if (targetKey && totalTarget > 0) {
@@ -220,17 +227,17 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
+    // ✨ CENTER: auto-fit font
+    const centerStr = formatNumber(totalValue, false, CONFIG.isPercentage, false, 2);
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.30)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'Arial, sans-serif')
-        .style('font-size', Math.max(16, radius * 0.25) + 'px')
+        .style('font-size', fitFontSize(centerStr, radius * 1.25, radius * 0.22) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        // ✨ CENTER: 2 decimals
-        .text(formatNumber(totalValue, false, CONFIG.isPercentage, false, 2));
-
+        .text(centerStr);
     valueText.raise();
 
     const animationDuration = 1000;
@@ -241,10 +248,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const progress = Math.min(elapsed / animationDuration, 1);
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
-
-        // ✨ animation: 2 decimals
         valueText.text(formatNumber(currentValue, false, CONFIG.isPercentage, false, 2));
-
         if (progress < 1) requestAnimationFrame(animateValue);
     }
     requestAnimationFrame(animateValue);
@@ -256,30 +260,32 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     } else {
         percentageDisplay = totalValue > 0 ? 100 : 0;
     }
+
+    // ✨ % achieved: auto-fit font
+    const pctStr = `${percentageDisplay.toFixed(2)}% achieved`;
     const percentageText = chartGroup.append('text')
         .attr('y', radius * 0.70)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'Arial, sans-serif')
-        .style('font-size', Math.max(10, radius * 0.15) + 'px')
+        .style('font-size', fitFontSize(pctStr, radius * 1.5, radius * 0.13) + 'px')
         .style('font-weight', 'bold')
         .style('fill', '#666')
-        // ✨ % achieved: 2 decimals
-        .text(`${percentageDisplay.toFixed(2)}% achieved`);
+        .text(pctStr);
     percentageText.raise();
 
     if (targetKey && totalTarget > 0) {
+        // ✨ TARGET: auto-fit font
+        const targetStr = 'Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage, true, 2);
         const targetText = chartGroup.append('text')
             .attr('y', radius * 0.85)
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', Math.max(8, radius * 0.12) + 'px')
+            .style('font-size', fitFontSize(targetStr, radius * 1.5, radius * 0.11) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            // ✨ TARGET: 2 decimals
-            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage, true, 2));
-
+            .text(targetStr);
         targetText.raise();
     }
 
