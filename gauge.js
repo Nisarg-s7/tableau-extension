@@ -56,7 +56,7 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
 // ✨ AUTO-FIT: number lamba ho ya box chhota ho, font khud shrink ho jayega
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
-    const approx = maxWidth / (len * 0.62);  // Arial bold avg char width
+    const approx = maxWidth / (len * 0.56);  // Arial bold avg char width
     return Math.max(minSize, Math.min(baseSize, approx));
 }
 
@@ -186,13 +186,14 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
         // ✨ TICK: auto-fit font
         const tickStr = formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 2);
+        const isLeft = (i === 0);
         chartGroup.append('text')
-            .attr('x', labelR * x)
-            .attr('y', labelR * y)
-            .attr('text-anchor', 'middle')
+            .attr('x', isLeft ? -radius * 1.0 : radius * 1.0)   // 👈 corner nahi, neeche left/right
+            .attr('y', radius * 1.28)                            // 👈 gauge ke neeche
+            .attr('text-anchor', isLeft ? 'start' : 'end')       // 👈 andar ki taraf failo
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', fitFontSize(tickStr, radius * 0.95, radius * 0.13) + 'px')
+            .style('font-size', fitFontSize(tickStr, radius * 1.0, radius * 0.12) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
             .text(tickStr);
@@ -234,7 +235,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'Arial, sans-serif')
-        .style('font-size', fitFontSize(centerStr, radius * 1.25, radius * 0.22) + 'px')
+        .style('font-size', fitFontSize(centerStr, radius * 1.1, radius * 0.18) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
         .text(centerStr);
