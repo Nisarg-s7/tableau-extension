@@ -18,14 +18,13 @@ const CONFIG = {
     measure: config.measure || "Sales",
     format: config.format || "#,##0.00",
     useSuffix: config.useSuffix !== false,
-    decimalPlaces: config.decimalPlaces || 1,
-    decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 1,
+    decimalPlaces: config.decimalPlaces || 2,
+    decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 2,
     prefix: config.prefix || "",
     unit: config.unit || " ",
     isPercentage: config.isPercentage || false
 };
 
-// ✨ 5th parameter "decimals" add kiya. Pass karoge toh wahi use hoga, warna CONFIG wala.
 function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true, decimals = null) {
     value = Number(value) || 0;
     const dMain = (decimals != null) ? decimals : CONFIG.decimalPlaces;
@@ -35,9 +34,13 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
         return value.toFixed(dMain) + "%";
     }
 
-   if (!useSuffix) {
-    return Number(value.toFixed(dMain)).toLocaleString('en-US');
-}
+    // ✨ comma + fixed decimals (trailing .00 bhi rahega)
+    if (!useSuffix) {
+        return value.toLocaleString('en-US', {
+            minimumFractionDigits: dMain,
+            maximumFractionDigits: dMain
+        });
+    }
 
     let formattedValue;
     if (Math.abs(value) >= 1000000) {
@@ -101,12 +104,12 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     });
 
     if (CONFIG.isPercentage) {
-    maxScale = 100;
-} else {
-    const rawMax = (Math.max(totalValue, totalTarget) * 1.2) || 100;
-    const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
-    maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
-}
+        maxScale = 100;
+    } else {
+        const rawMax = (Math.max(totalValue, totalTarget) * 1.2) || 100;
+        const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
+        maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
+    }
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
@@ -141,8 +144,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
 
-const valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
-const currentAngle = startAngle + (valueFraction * totalRange);
+    const valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
+    const currentAngle = startAngle + (valueFraction * totalRange);
 
     const arcGen = d3.arc()
         .innerRadius(radius * 0.7)
@@ -184,8 +187,8 @@ const currentAngle = startAngle + (valueFraction * totalRange);
             .style('font-size', Math.max(9, radius * 0.15) + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
-            // ✨ TICKS: full value, no .0  (last 0 = zero decimals)
-            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 0));
+            // ✨ TICKS: 2 decimals
+            .text(formatNumber(f * maxScale, false, CONFIG.isPercentage, true, 2));
     }
 
     if (targetKey && totalTarget > 0) {
@@ -225,8 +228,8 @@ const currentAngle = startAngle + (valueFraction * totalRange);
         .style('font-size', Math.max(16, radius * 0.25) + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
-        // ✨ CENTER (actual): FULL value, no K/M, no .0  (useSuffix=false, decimals=0)
-        .text(formatNumber(totalValue, false, CONFIG.isPercentage, false, 0));
+        // ✨ CENTER: 2 decimals
+        .text(formatNumber(totalValue, false, CONFIG.isPercentage, false, 2));
 
     valueText.raise();
 
@@ -239,8 +242,8 @@ const currentAngle = startAngle + (valueFraction * totalRange);
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = totalValue * easeProgress;
 
-        // ✨ animation me bhi full value
-        valueText.text(formatNumber(currentValue, false, CONFIG.isPercentage, false, 0));
+        // ✨ animation: 2 decimals
+        valueText.text(formatNumber(currentValue, false, CONFIG.isPercentage, false, 2));
 
         if (progress < 1) requestAnimationFrame(animateValue);
     }
@@ -248,7 +251,7 @@ const currentAngle = startAngle + (valueFraction * totalRange);
 
     let percentageDisplay = 0;
     if (totalTarget > 0) {
-          const actualPercentage = (totalValue / totalTarget) * 100;   
+        const actualPercentage = (totalValue / totalTarget) * 100;
         percentageDisplay = Math.min(actualPercentage, 100);
     } else {
         percentageDisplay = totalValue > 0 ? 100 : 0;
@@ -261,7 +264,8 @@ const currentAngle = startAngle + (valueFraction * totalRange);
         .style('font-size', Math.max(10, radius * 0.15) + 'px')
         .style('font-weight', 'bold')
         .style('fill', '#666')
-        .text(`${percentageDisplay.toFixed(1)}% achieved`);
+        // ✨ % achieved: 2 decimals
+        .text(`${percentageDisplay.toFixed(2)}% achieved`);
     percentageText.raise();
 
     if (targetKey && totalTarget > 0) {
@@ -273,8 +277,8 @@ const currentAngle = startAngle + (valueFraction * totalRange);
             .style('font-size', Math.max(8, radius * 0.12) + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            // ✨ TARGET: no .0
-            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage, true, 0));
+            // ✨ TARGET: 2 decimals
+            .text('Target: ' + formatNumber(totalTarget, false, CONFIG.isPercentage, true, 2));
 
         targetText.raise();
     }
