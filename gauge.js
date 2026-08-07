@@ -146,7 +146,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const cx = width / 2;
     const cy = height * 0.55; // Push center slightly down to leave full top-right clear
     
-    // ✨ गेज को पूरी स्क्रीन पर विशाल (Huge) दिखाने के लिए रेडियस बढ़ाया गया है
+    // Expand circle to take full worksheet container space
     const radius = Math.min(
         (width - margin.left - margin.right) / 2.2,
         (height - margin.top - margin.bottom) / 1.6
@@ -260,8 +260,10 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // CENTER TEXT VALUE
-    const centerStr = formatNumber(totalValue, false, false, false, CONFIG.decimalPlacesForAchievedValue);
+    // 1️⃣ सुधार: सेंटर वैल्यू अब चुने गए मोड के हिसाब से खुद को प्रदर्शित करेगी (Value ➡️ 423,387.00 | Percentage ➡️ 3.88%)
+    const finalCenterValue = isPctMode ? (totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0) : totalValue;
+    const centerStr = formatNumber(finalCenterValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue);
+    
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.22) 
         .attr('text-anchor', 'middle')
@@ -280,8 +282,11 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / animationDuration, 1);
         const easeProgress = 1 - Math.pow(1 - progress, 3);
-        const currentValue = totalValue * easeProgress;
-        valueText.text(formatNumber(currentValue, false, false, false, CONFIG.decimalPlacesForAchievedValue));
+        const currentValue = finalCenterValue * easeProgress;
+        
+        // 2️⃣ सुधार: एनीमेशन में भी चुने गए मोड का फॉर्मेट सिंक होगा
+        valueText.text(formatNumber(currentValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue));
+        
         if (progress < 1) requestAnimationFrame(animateValue);
     }
     requestAnimationFrame(animateValue);
@@ -401,7 +406,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
         content.appendChild(chartArea);
     }
 
-    // 1️⃣ बदलाव: बटनों को वापस परफेक्ट मूल आकार (Padding: 6px 18px, Font: 12px) में सेट कर दिया गया है
+    // Buttons styled with precise original dimensions (6px 18px, Font: 12px)
     controls.innerHTML = `
         <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
         <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
