@@ -25,6 +25,19 @@ const CONFIG = {
     isPercentage: config.isPercentage || false
 };
 
+/* ============================================================
+   🎚️  GAUGE SIZE TUNING  —  chart छोटा/बड़ा करने के लिए यहीं बदलें
+   ------------------------------------------------------------
+   sizeBoost : 1.00 = safe fit | 1.18 = बड़ा | 1.30 = और बड़ा
+   ============================================================ */
+const GAUGE_TUNING = {
+    sizeBoost:     1.18,   // ⭐ MAIN KNOB — यही बदलें
+    padPct:        0.008,  // किनारों का gap (कम = बड़ा chart)
+    topReservePx:  34,     // toggle buttons के लिए ऊपर जगह (0 = और बड़ा)
+    labelRadius:   1.15,   // tick labels की दूरी (कम = बड़ा)
+    verticalNudge: 0       // -20 = ऊपर खिसकाएँ, +20 = नीचे
+};
+
 // Global mode state initialization
 window.currentGaugeMode = window.currentGaugeMode || "value";
 
@@ -67,11 +80,14 @@ function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     return Math.max(minSize, Math.min(baseSize, approx));
 }
 
-// ✨ पूरे drawing को नापकर container में exact fit + center कर देता है
-function fitVizToContainer(svgNode, width, height, topReserve = 45, pad = 8) {
+// ✨ bbox नापकर container में fit + BOOST + center करता है
+function fitVizToContainer(svgNode, width, height, topReserve = 34, pad = 6) {
     if (!svgNode) return;
     const g = svgNode.querySelector('g.gauge-root');
     if (!g) return;
+
+    // pure bbox लेने के लिए पहले transform reset करें
+    g.setAttribute('transform', 'translate(0,0) scale(1)');
 
     let bbox;
     try { bbox = g.getBBox(); } catch (e) { return; }
@@ -80,10 +96,12 @@ function fitVizToContainer(svgNode, width, height, topReserve = 45, pad = 8) {
     const availW = Math.max(20, width  - pad * 2);
     const availH = Math.max(20, height - pad * 2 - topReserve);
 
-    const k = Math.min(availW / bbox.width, availH / bbox.height);
+    // ⭐ यहाँ sizeBoost apply होता है
+    const k = Math.min(availW / bbox.width, availH / bbox.height) * GAUGE_TUNING.sizeBoost;
 
     const tx = pad + (availW - bbox.width  * k) / 2 - bbox.x * k;
-    const ty = pad + topReserve + (availH - bbox.height * k) / 2 - bbox.y * k;
+    const ty = pad + topReserve + (availH - bbox.height * k) / 2 - bbox.y * k
+               + GAUGE_TUNING.verticalNudge;
 
     g.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
 }
@@ -156,25 +174,19 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const minDim = Math.min(width, height);
 
-    // ---------------------------------------------------------------
-    // 🔥 NEW GEOMETRY : पूरी sheet का maximum space इस्तेमाल करता है
-    // ---------------------------------------------------------------
-    // ऊपर toggle buttons के लिए reserved space
-    const topReserve = Math.min(55, Math.max(30, height * 0.09));
-    const pad = Math.max(6, minDim * 0.02);
+    // ---------------- GEOMETRY (tuning-driven) ----------------
+    const topReserve = GAUGE_TUNING.topReservePx;
+    const pad = Math.max(3, minDim * GAUGE_TUNING.padPct);
 
     const availW = Math.max(60, width  - pad * 2);
     const availH = Math.max(60, height - pad * 2 - topReserve);
 
-    // Gauge की असली shape ≈ 2.70R चौड़ी, 2.10R ऊँची (tick labels सहित)
-    const GAUGE_W_UNITS = 2.70;
-    const GAUGE_H_UNITS = 2.10;
-
-    const radius = Math.min(availW / GAUGE_W_UNITS, availH / GAUGE_H_UNITS);
+    // approx shape — fitVizToContainer() बाद में exact + boost कर देगा
+    const radius = Math.min(availW / 2.65, availH / 2.00);
 
     const cx = width / 2;
-    const cy = pad + topReserve + radius * 1.18;
-    // ---------------------------------------------------------------
+    const cy = pad + topReserve + radius * 1.15;
+    // ----------------------------------------------------------
 
     const svg = d3.create('svg')
         .attr('class', tableau.ClassNameKey.Worksheet)
@@ -183,6 +195,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet')
         .style('display', 'block')
+        .style('overflow', 'visible')
         .style('background', 'white');
 
     const chartGroup = svg.append('g')
@@ -221,9 +234,9 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const angle = startAngle + (f * totalRange);
         const x = Math.sin(angle);
         const y = -Math.cos(angle);
-        const tickStart = radius * 1.05;
-        const tickEnd = radius * 1.15;
-        const labelR = radius * 1.22;
+        const tickStart = radius * 1.02;
+        const tickEnd = radius * 1.09;
+        const labelR = radius * GAUGE_TUNING.labelRadius;
 
         chartGroup.append('line')
             .attr('x1', tickStart * x)
@@ -262,8 +275,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         chartGroup.append('line')
             .attr('x1', radius * 0.6 * Math.sin(tAngle))
             .attr('y1', radius * 0.6 * -Math.cos(tAngle))
-            .attr('x2', radius * 1.15 * Math.sin(tAngle))
-            .attr('y2', radius * 1.15 * -Math.cos(tAngle))
+            .attr('x2', radius * 1.12 * Math.sin(tAngle))
+            .attr('y2', radius * 1.12 * -Math.cos(tAngle))
             .attr('stroke', '#f28e2c')
             .attr('stroke-width', Math.max(2, radius * 0.04))
             .attr('stroke-linecap', 'round');
@@ -286,7 +299,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // CENTER TEXT VALUE (Perfect responsive sizing)
+    // CENTER TEXT VALUE
     const finalCenterValue = isPctMode ? (totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0) : totalValue;
     const centerStr = formatNumber(finalCenterValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue);
 
@@ -358,7 +371,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 }
 
 
-// ✨ RENDER VIZ: Handles full screen responsiveness layout beautifully
+// ✨ RENDER VIZ
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -371,10 +384,10 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     content.style.position = 'relative';
 
-    // Global CSS Rule Injection
-    if (!document.getElementById('gauge-global-styles')) {
+    // Global CSS Rule Injection  (id बदला है ताकि पुरानी cached CSS override हो)
+    if (!document.getElementById('gauge-global-styles-v2')) {
         const style = document.createElement('style');
-        style.id = 'gauge-global-styles';
+        style.id = 'gauge-global-styles-v2';
         style.innerHTML = `
             html, body, #content {
                 width: 100% !important;
@@ -386,8 +399,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             }
             #gauge-controls-container {
                 position: absolute !important;
-                top: 10px !important;
-                right: 15px !important;
+                top: 8px !important;
+                right: 12px !important;
                 z-index: 9999 !important;
                 display: flex !important;
                 background: #f1f5f9 !important;
@@ -406,9 +419,12 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
                 top: 0 !important;
                 left: 0 !important;
                 z-index: 1 !important;
-                overflow: hidden !important;
+                overflow: visible !important;
             }
-            #chart-area > svg { display: block !important; }
+            #chart-area > svg {
+                display: block !important;
+                overflow: visible !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -429,8 +445,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     }
 
     controls.innerHTML = `
-        <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
-        <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
+        <div id="btn-val-mode" style="padding: 5px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
+        <div id="btn-pct-mode" style="padding: 5px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
     `;
 
     document.getElementById('btn-val-mode').onclick = () => {
@@ -462,9 +478,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     if (result.viz) {
         chartArea.appendChild(result.viz);
 
-        // DOM में आने के बाद ही असली bbox मिलता है → तभी exact fit करें
-        const tR = (result.topReserve != null) ? result.topReserve : 45;
-        const pd = (result.pad != null) ? result.pad : 8;
+        const tR = (result.topReserve != null) ? result.topReserve : GAUGE_TUNING.topReservePx;
+        const pd = (result.pad != null) ? result.pad : 6;
 
         fitVizToContainer(result.viz, width, height, tR, pd);
         requestAnimationFrame(() => fitVizToContainer(result.viz, width, height, tR, pd));
@@ -510,7 +525,6 @@ window.onload = function() {
 
         window.addEventListener('resize', doResize);
 
-        // ✅ Sheet / Dashboard resize पर pixel-perfect redraw (window.resize हमेशा fire नहीं होता)
         const contentEl = document.getElementById('content');
         if (contentEl && window.ResizeObserver) {
             const ro = new ResizeObserver(doResize);
