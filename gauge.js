@@ -21,11 +21,11 @@ const CONFIG = {
     decimalPlaces: config.decimalPlaces || 2,
     decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 2,
     prefix: config.prefix || "",
-    unit: "",                               // No unit (KWh removed completely)
+    unit: "",                               // No unit (KWh fully removed)
     isPercentage: config.isPercentage || false
 };
 
-// Global mode state initialization
+// Global mode state initialization (Value Mode is default)
 window.currentGaugeMode = window.currentGaugeMode || "value";
 
 function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true, decimals = null) {
@@ -60,7 +60,7 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
 }
 
-// ✨ AUTO-FIT: calculates precise font size dynamically
+// ✨ AUTO-FIT: Calculates precise font size dynamically to prevent overlap
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
     const approx = maxWidth / (len * 0.56);  
@@ -117,18 +117,17 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     });
 
     const isPctMode = (window.currentGaugeMode === "percentage");
-    const achievedPct = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
 
-    // 1️⃣ SCALE CALCULATOR: प्रतिशत मोड होने पर पैमाना हमेशा टारगेट से 20% आगे (120%) रहेगा ताकि टारगेट हमेशा साफ़ दिखे
+    // 1️⃣ SCALE: Percentage मोड में पैमाना 100% तक सीमित रहेगा
     if (isPctMode) {
-        maxScale = achievedPct > 100 ? Math.ceil((achievedPct * 1.2) / 10) * 10 : 120; 
+        maxScale = 100; 
     } else {
         const rawMax = (Math.max(totalValue, totalTarget) * 1.2) || 100;
         const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
         maxScale = Math.ceil(rawMax / (pow10 / 2)) * (pow10 / 2);
     }
 
-    const sampleFormatted = isPctMode ? "120.00%" : formatNumber(maxScale, false, false, true, CONFIG.decimalPlaces);
+    const sampleFormatted = isPctMode ? "100.00%" : formatNumber(maxScale, false, false, true, CONFIG.decimalPlaces);
     const numberLength = sampleFormatted.length; 
     const fontScale = Math.min(1.0, Math.max(0.7, 10 / numberLength));
 
@@ -167,9 +166,10 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
 
-    // 2️⃣ NEEDLE POSITION: सुई हमेशा अचीव्ड% के हिसाब से घूमेगी
+    // Needle position ratio
     let valueFraction;
     if (isPctMode) {
+        const achievedPct = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
         valueFraction = Math.min(Math.max(achievedPct / maxScale, 0), 1);
     } else {
         valueFraction = Math.min(Math.max(totalValue / maxScale, 0), 1);
@@ -207,7 +207,13 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .attr('stroke', '#333')
             .attr('stroke-width', Math.max(1, radius * 0.02));
 
-        const tickStr = formatNumber(f * maxScale, false, isPctMode, true, CONFIG.decimalPlaces);
+        let tickStr;
+        if (isPctMode) {
+            tickStr = formatNumber(f * maxScale, false, true, true, CONFIG.decimalPlaces);
+        } else {
+            tickStr = formatNumber(f * maxScale, false, false, true, CONFIG.decimalPlaces);
+        }
+
         const isLeft = (i === 0);
         const textAnchor = isLeft ? 'end' : 'start';
         const xOffset = isLeft ? -5 : 5;
@@ -224,9 +230,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .text(tickStr);
     }
 
-    // 3️⃣ TARGET ORANGE LINE: प्रतिशत मोड में टारगेट लाइन हमेशा गेज के अंदर '100%' पर सुंदर दिखेगी
     if (targetKey && totalTarget > 0) {
-        const targetPosFraction = isPctMode ? (100 / maxScale) : (totalTarget / maxScale);
+        const targetPosFraction = isPctMode ? 1.0 : (totalTarget / maxScale);
         const tAngle = startAngle + (Math.min(targetPosFraction, 1) * totalRange);
         chartGroup.append('line')
             .attr('x1', radius * 0.6 * Math.sin(tAngle))
@@ -255,7 +260,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // 4️⃣ CENTER VALUE: यह हमेशा बिना K/M के पूरा वास्तविक नंबर ही रहेगा (दोनों मोड में)
+    // 2️⃣ CENTER ACTUAL VALUE: हमेशा बिना K/M के पूरे फॉर्मेट में रहेगा (दोनों मोड में)
     const centerStr = formatNumber(totalValue, false, false, false, CONFIG.decimalPlacesForAchievedValue);
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.22) 
@@ -282,7 +287,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     requestAnimationFrame(animateValue);
 
     // % ACHIEVED
-    const pctStr = `${achievedPct.toFixed(2)}% achieved`;
+    const percentageDisplay = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
+    const pctStr = `${percentageDisplay.toFixed(2)}% achieved`;
     const percentageText = chartGroup.append('text')
         .attr('y', radius * 0.48) 
         .attr('text-anchor', 'middle')
@@ -294,7 +300,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .text(pctStr);
     percentageText.raise();
 
-    // 5️⃣ TARGET BOTTOM TEXT: प्रतिशत मोड होने पर नीचे टारगेट 'Target: 100.00%' दिखाएगा
+    // TARGET BOTTOM TEXT: प्रतिशत मोड में 'Target: 100.00%' दिखाएगा
     if (targetKey && totalTarget > 0) {
         let targetStr;
         if (isPctMode) {
@@ -325,7 +331,8 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     return { viz: svg.node(), interactionElement, allTupleIds };
 }
 
-// ... बाकी का सारा Tableau रेंडरिंग कोड समान रहेगा ...
+
+// ✨ RENDER VIZ: Creates the floating toggle UI beautifully
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -336,35 +343,76 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // BUTTON CONTROLS BUILDER
+    // Ensure content container supports absolute floating elements
+    content.style.position = 'relative';
+
+    // 3️⃣ NEW FLOATING INTERACTIVE SWITCHER PANEL (Apple Pill Design)
     if (!document.getElementById('gauge-controls-container')) {
-        content.innerHTML = `
-            <div id="gauge-controls-container" style="display: flex; gap: 16px; align-items: center; justify-content: center; padding: 10px; background: #ffffff; border-bottom: 1px solid #e2e8f0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                <span style="font-weight: 600; color: #2d3748; letter-spacing: 0.3px;">View Format:</span>
-                <div style="display: flex; gap: 14px; align-items: center;">
-                    <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 6px; font-weight: 500; transition: color 0.2s;">
-                        <input type="radio" name="gaugeMode" value="value" ${window.currentGaugeMode !== 'percentage' ? 'checked' : ''} style="accent-color: #5B6FD8; width: 15px; height: 15px; cursor: pointer;"> Raw Number
-                    </label>
-                    <label style="cursor: pointer; color: #4a5568; display: flex; align-items: center; gap: 6px; font-weight: 500; transition: color 0.2s;">
-                        <input type="radio" name="gaugeMode" value="percentage" ${window.currentGaugeMode === 'percentage' ? 'checked' : ''} style="accent-color: #5B6FD8; width: 15px; height: 15px; cursor: pointer;"> Percentage (%)
-                    </label>
-                </div>
-                <button id="apply-gauge-btn" style="background: #5B6FD8; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(91, 111, 216, 0.3); outline: none;">Apply</button>
-            </div>
-            <div id="chart-area" style="width: 100%; height: calc(100% - 46px); position: relative; overflow: hidden;"></div>
+        const controls = document.createElement('div');
+        controls.id = 'gauge-controls-container';
+        controls.style.cssText = `
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+            font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+            user-select: none;
+            cursor: pointer;
         `;
+        
+        controls.innerHTML = `
+            <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
+            <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
+        `;
+        content.appendChild(controls);
 
-        const btn = document.getElementById('apply-gauge-btn');
-        btn.onmouseover = () => btn.style.background = '#4A5CC4';
-        btn.onmouseout = () => btn.style.background = '#5B6FD8';
+        // Chart sub-area element creation
+        const chartArea = document.createElement('div');
+        chartArea.id = 'chart-area';
+        chartArea.style.cssText = `
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        `;
+        content.appendChild(chartArea);
 
-        document.getElementById('apply-gauge-btn').addEventListener('click', () => {
-            const selectedMode = document.querySelector('input[name="gaugeMode"]:checked').value;
-            window.currentGaugeMode = selectedMode;
-            
-            const args = window.gaugeActiveArgs;
-            renderViz(args.rawData, args.encodingMap, args.selectedMarksIds, args.styles);
+        // Set up immediate trigger clicks (No Apply button needed anymore!)
+        document.getElementById('btn-val-mode').addEventListener('click', () => {
+            if (window.currentGaugeMode !== 'value') {
+                window.currentGaugeMode = 'value';
+                triggerModeChange();
+            }
         });
+        document.getElementById('btn-pct-mode').addEventListener('click', () => {
+            if (window.currentGaugeMode !== 'percentage') {
+                window.currentGaugeMode = 'percentage';
+                triggerModeChange();
+            }
+        });
+    }
+
+    function triggerModeChange() {
+        const valBtn = document.getElementById('btn-val-mode');
+        const pctBtn = document.getElementById('btn-pct-mode');
+        if (window.currentGaugeMode === 'percentage') {
+            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
+            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
+        } else {
+            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
+            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
+        }
+        
+        // Instant re-render with new state
+        const args = window.gaugeActiveArgs;
+        renderViz(args.rawData, args.encodingMap, args.selectedMarksIds, args.styles);
     }
 
     const chartArea = document.getElementById('chart-area');
