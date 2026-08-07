@@ -63,8 +63,29 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
 // ✨ AUTO-FIT: calculates precise font size dynamically to prevent overlap
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
-    const approx = maxWidth / (len * 0.56);  
+    const approx = maxWidth / (len * 0.56);
     return Math.max(minSize, Math.min(baseSize, approx));
+}
+
+// ✨ पूरे drawing को नापकर container में exact fit + center कर देता है
+function fitVizToContainer(svgNode, width, height, topReserve = 45, pad = 8) {
+    if (!svgNode) return;
+    const g = svgNode.querySelector('g.gauge-root');
+    if (!g) return;
+
+    let bbox;
+    try { bbox = g.getBBox(); } catch (e) { return; }
+    if (!bbox || !bbox.width || !bbox.height) return;
+
+    const availW = Math.max(20, width  - pad * 2);
+    const availH = Math.max(20, height - pad * 2 - topReserve);
+
+    const k = Math.min(availW / bbox.width, availH / bbox.height);
+
+    const tx = pad + (availW - bbox.width  * k) / 2 - bbox.x * k;
+    const ty = pad + topReserve + (availH - bbox.height * k) / 2 - bbox.y * k;
+
+    g.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
 }
 
 
@@ -119,7 +140,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const isPctMode = (window.currentGaugeMode === "percentage");
 
     if (isPctMode) {
-        maxScale = 100; 
+        maxScale = 100;
     } else {
         const rawMax = (Math.max(totalValue, totalTarget) * 1.2) || 100;
         const pow10 = Math.pow(10, Math.floor(Math.log10(rawMax)));
@@ -127,31 +148,33 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     }
 
     const sampleFormatted = isPctMode ? "100.00%" : formatNumber(maxScale, false, false, true, CONFIG.decimalPlaces);
-    const numberLength = sampleFormatted.length; 
+    const numberLength = sampleFormatted.length;
     const fontScale = Math.min(1.0, Math.max(0.7, 10 / numberLength));
 
     width = Math.max(width, 100);
     height = Math.max(height, 100);
 
     const minDim = Math.min(width, height);
-    
-    // 1️⃣ सुधार: नीचे लिखे नंबर्स के लिए एक्स्ट्रा बॉटम स्पेसिंग दी गई है (bottom: 0.15)
-    const margin = {
-        top: minDim * 0.12,
-        right: minDim * 0.12,
-        bottom: minDim * 0.15, 
-        left: minDim * 0.12
-    };
 
-    // 2️⃣ सुधार: सेंटर (cy) को थोड़ा ऊपर खिसकाया ताकि नीचे की चीजें स्क्रीन से बाहर न जाएं
+    // ---------------------------------------------------------------
+    // 🔥 NEW GEOMETRY : पूरी sheet का maximum space इस्तेमाल करता है
+    // ---------------------------------------------------------------
+    // ऊपर toggle buttons के लिए reserved space
+    const topReserve = Math.min(55, Math.max(30, height * 0.09));
+    const pad = Math.max(6, minDim * 0.02);
+
+    const availW = Math.max(60, width  - pad * 2);
+    const availH = Math.max(60, height - pad * 2 - topReserve);
+
+    // Gauge की असली shape ≈ 2.70R चौड़ी, 2.10R ऊँची (tick labels सहित)
+    const GAUGE_W_UNITS = 2.70;
+    const GAUGE_H_UNITS = 2.10;
+
+    const radius = Math.min(availW / GAUGE_W_UNITS, availH / GAUGE_H_UNITS);
+
     const cx = width / 2;
-    const cy = height * 0.47; 
-    
-    // 3️⃣ सुधार: रेडियस को गणितीय रूप से 100% फिट और सुरक्षित कर दिया गया है
-    const radius = Math.min(
-        (width - margin.left - margin.right) / 2.4,
-        (height - margin.top - margin.bottom) / 2.15
-    );
+    const cy = pad + topReserve + radius * 1.18;
+    // ---------------------------------------------------------------
 
     const svg = d3.create('svg')
         .attr('class', tableau.ClassNameKey.Worksheet)
@@ -159,9 +182,11 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('height', '100%')
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('display', 'block')
         .style('background', 'white');
 
     const chartGroup = svg.append('g')
+        .attr('class', 'gauge-root')
         .attr('transform', `translate(${cx}, ${cy})`);
 
     const startAngle = -Math.PI * 0.75;
@@ -198,7 +223,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const y = -Math.cos(angle);
         const tickStart = radius * 1.05;
         const tickEnd = radius * 1.15;
-        const labelR = radius * 1.22; 
+        const labelR = radius * 1.22;
 
         chartGroup.append('line')
             .attr('x1', tickStart * x)
@@ -225,7 +250,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             .attr('text-anchor', textAnchor)
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', fitFontSize(tickStr, radius * 0.85, radius * 0.13) * fontScale + 'px')
+            .style('font-size', fitFontSize(tickStr, radius * 0.85, radius * 0.12) * fontScale + 'px')
             .style('fill', '#333')
             .style('font-weight', 'bold')
             .text(tickStr);
@@ -264,13 +289,13 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     // CENTER TEXT VALUE (Perfect responsive sizing)
     const finalCenterValue = isPctMode ? (totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0) : totalValue;
     const centerStr = formatNumber(finalCenterValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue);
-    
+
     const valueText = chartGroup.append('text')
-        .attr('y', radius * 0.22) 
+        .attr('y', radius * 0.20)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'Arial, sans-serif')
-        .style('font-size', fitFontSize(centerStr, radius * 1.25, radius * 0.22) * fontScale + 'px')
+        .style('font-size', fitFontSize(centerStr, radius * 1.25, radius * 0.24) * fontScale + 'px')
         .style('font-weight', 'bold')
         .style('fill', palette[0])
         .text(centerStr);
@@ -293,11 +318,11 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const percentageDisplay = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
     const pctStr = `${percentageDisplay.toFixed(2)}% achieved`;
     const percentageText = chartGroup.append('text')
-        .attr('y', radius * 0.48) 
+        .attr('y', radius * 0.46)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .style('font-family', 'Arial, sans-serif')
-        .style('font-size', fitFontSize(pctStr, radius * 1.4, radius * 0.13) * fontScale + 'px')
+        .style('font-size', fitFontSize(pctStr, radius * 1.4, radius * 0.125) * fontScale + 'px')
         .style('font-weight', 'bold')
         .style('fill', '#666')
         .text(pctStr);
@@ -313,11 +338,11 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         }
 
         const targetText = chartGroup.append('text')
-            .attr('y', radius * 0.72) 
+            .attr('y', radius * 0.68)
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', fitFontSize(targetStr, radius * 1.5, radius * 0.11) * fontScale + 'px')
+            .style('font-size', fitFontSize(targetStr, radius * 1.5, radius * 0.105) * fontScale + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
             .text(targetStr);
@@ -329,7 +354,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('fill', 'transparent')
         .style('pointer-events', 'none');
 
-    return { viz: svg.node(), interactionElement, allTupleIds };
+    return { viz: svg.node(), interactionElement, allTupleIds, topReserve, pad };
 }
 
 
@@ -361,8 +386,8 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             }
             #gauge-controls-container {
                 position: absolute !important;
-                top: 15px !important;
-                right: 25px !important;    
+                top: 10px !important;
+                right: 15px !important;
                 z-index: 9999 !important;
                 display: flex !important;
                 background: #f1f5f9 !important;
@@ -376,12 +401,14 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             }
             #chart-area {
                 width: 100% !important;
-                height: 100% !important; 
+                height: 100% !important;
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
                 z-index: 1 !important;
+                overflow: hidden !important;
             }
+            #chart-area > svg { display: block !important; }
         `;
         document.head.appendChild(style);
     }
@@ -426,12 +453,23 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     chartArea.innerHTML = '';
 
-    const width = chartArea.offsetWidth || chartArea.clientWidth || window.innerWidth || 400;
-    const height = chartArea.offsetHeight || chartArea.clientHeight || window.innerHeight || 300;
+    const rect = chartArea.getBoundingClientRect();
+    const width  = Math.round(rect.width)  || chartArea.offsetWidth  || window.innerWidth  || 400;
+    const height = Math.round(rect.height) || chartArea.offsetHeight || window.innerHeight || 300;
 
     const result = await GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles);
 
-    if (result.viz) chartArea.appendChild(result.viz);
+    if (result.viz) {
+        chartArea.appendChild(result.viz);
+
+        // DOM में आने के बाद ही असली bbox मिलता है → तभी exact fit करें
+        const tR = (result.topReserve != null) ? result.topReserve : 45;
+        const pd = (result.pad != null) ? result.pad : 8;
+
+        fitVizToContainer(result.viz, width, height, tR, pd);
+        requestAnimationFrame(() => fitVizToContainer(result.viz, width, height, tR, pd));
+        setTimeout(() => fitVizToContainer(result.viz, width, height, tR, pd), 60);
+    }
     return result;
 }
 
@@ -460,15 +498,24 @@ window.onload = function() {
         worksheet.addEventListener(tableau.TableauEventType.FilterChanged, update);
 
         let resizeTimeout;
-        window.addEventListener('resize', () => {
+        const doResize = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
                 const args = window.gaugeActiveArgs;
                 if (args) {
                     renderViz(args.rawData, args.encodingMap, args.selectedMarksIds, args.styles);
                 }
-            }, 150);
-        });
+            }, 120);
+        };
+
+        window.addEventListener('resize', doResize);
+
+        // ✅ Sheet / Dashboard resize पर pixel-perfect redraw (window.resize हमेशा fire नहीं होता)
+        const contentEl = document.getElementById('content');
+        if (contentEl && window.ResizeObserver) {
+            const ro = new ResizeObserver(doResize);
+            ro.observe(contentEl);
+        }
 
         document.body.addEventListener('click', async (e) => {
             if (e.target.closest('#gauge-controls-container')) return;
