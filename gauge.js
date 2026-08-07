@@ -21,21 +21,28 @@ const CONFIG = {
     decimalPlaces: config.decimalPlaces || 2,
     decimalPlacesForAchievedValue: config.decimalPlacesForAchievedValue || 2,
     prefix: config.prefix || "",
-    unit: "",                               // No unit (KWh fully removed)
+    unit: "",
     isPercentage: config.isPercentage || false
 };
 
 /* ============================================================
-   🎚️  GAUGE SIZE TUNING  —  chart छोटा/बड़ा करने के लिए यहीं बदलें
-   ------------------------------------------------------------
-   sizeBoost : 1.00 = safe fit | 1.18 = बड़ा | 1.30 = और बड़ा
+   🎚️  GAUGE TUNING  —  size + variance settings यहीं से control करें
    ============================================================ */
 const GAUGE_TUNING = {
-    sizeBoost:     1.18,   // ⭐ MAIN KNOB — यही बदलें
+    /* ---- SIZE ---- */
+    sizeBoost:     1.18,   // ⭐ 1.00 = safe fit | 1.18 = बड़ा | 1.30 = और बड़ा
     padPct:        0.008,  // किनारों का gap (कम = बड़ा chart)
     topReservePx:  34,     // toggle buttons के लिए ऊपर जगह (0 = और बड़ा)
     labelRadius:   1.15,   // tick labels की दूरी (कम = बड़ा)
-    verticalNudge: 0       // -20 = ऊपर खिसकाएँ, +20 = नीचे
+    verticalNudge: 0,      // -20 = ऊपर, +20 = नीचे
+
+    /* ---- 📊 VARIANCE (Actual vs Target) ---- */
+    showAchieved:      true,      // "3.88% achieved" line दिखाएँ?
+    showVariance:      true,      // variance line on/off
+    varianceOnlyInPct: true,      // ⭐ true = सिर्फ़ Percentage(%) mode में
+    varianceMode:      'both',    // 'abs' | 'pct' | 'both'
+    positiveColor:     '#2e9e5b', // 🟢 target से ऊपर
+    negativeColor:     '#e03131'  // 🔴 target से नीचे
 };
 
 // Global mode state initialization
@@ -73,20 +80,19 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
 }
 
-// ✨ AUTO-FIT: calculates precise font size dynamically to prevent overlap
+// ✨ AUTO-FIT font size
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
     const approx = maxWidth / (len * 0.56);
     return Math.max(minSize, Math.min(baseSize, approx));
 }
 
-// ✨ bbox नापकर container में fit + BOOST + center करता है
+// ✨ bbox नापकर container में fit + BOOST + center
 function fitVizToContainer(svgNode, width, height, topReserve = 34, pad = 6) {
     if (!svgNode) return;
     const g = svgNode.querySelector('g.gauge-root');
     if (!g) return;
 
-    // pure bbox लेने के लिए पहले transform reset करें
     g.setAttribute('transform', 'translate(0,0) scale(1)');
 
     let bbox;
@@ -96,7 +102,6 @@ function fitVizToContainer(svgNode, width, height, topReserve = 34, pad = 6) {
     const availW = Math.max(20, width  - pad * 2);
     const availH = Math.max(20, height - pad * 2 - topReserve);
 
-    // ⭐ यहाँ sizeBoost apply होता है
     const k = Math.min(availW / bbox.width, availH / bbox.height) * GAUGE_TUNING.sizeBoost;
 
     const tx = pad + (availW - bbox.width  * k) / 2 - bbox.x * k;
@@ -174,19 +179,18 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const minDim = Math.min(width, height);
 
-    // ---------------- GEOMETRY (tuning-driven) ----------------
+    // ---------------- GEOMETRY ----------------
     const topReserve = GAUGE_TUNING.topReservePx;
     const pad = Math.max(3, minDim * GAUGE_TUNING.padPct);
 
     const availW = Math.max(60, width  - pad * 2);
     const availH = Math.max(60, height - pad * 2 - topReserve);
 
-    // approx shape — fitVizToContainer() बाद में exact + boost कर देगा
     const radius = Math.min(availW / 2.65, availH / 2.00);
 
     const cx = width / 2;
     const cy = pad + topReserve + radius * 1.15;
-    // ----------------------------------------------------------
+    // ------------------------------------------
 
     const svg = d3.create('svg')
         .attr('class', tableau.ClassNameKey.Worksheet)
@@ -299,7 +303,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // CENTER TEXT VALUE
+    // ---------------- CENTER VALUE ----------------
     const finalCenterValue = isPctMode ? (totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0) : totalValue;
     const centerStr = formatNumber(finalCenterValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue);
 
@@ -327,21 +331,72 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     }
     requestAnimationFrame(animateValue);
 
-    // % ACHIEVED
+    /* ============================================================
+       📊  ACHIEVED  +  VARIANCE  +  TARGET
+       ============================================================ */
     const percentageDisplay = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
-    const pctStr = `${percentageDisplay.toFixed(2)}% achieved`;
-    const percentageText = chartGroup.append('text')
-        .attr('y', radius * 0.46)
-        .attr('text-anchor', 'middle')
-        .attr('dominant-baseline', 'middle')
-        .style('font-family', 'Arial, sans-serif')
-        .style('font-size', fitFontSize(pctStr, radius * 1.4, radius * 0.125) * fontScale + 'px')
-        .style('font-weight', 'bold')
-        .style('fill', '#666')
-        .text(pctStr);
-    percentageText.raise();
 
-    // TARGET BOTTOM TEXT
+    // ---- variance calculations (Actual vs Target) ----
+    const varianceAbs = totalValue - totalTarget;
+    const variancePct = totalTarget > 0 ? (varianceAbs / totalTarget) * 100 : 0;
+    const isPos    = varianceAbs >= 0;
+    const varColor = isPos ? GAUGE_TUNING.positiveColor : GAUGE_TUNING.negativeColor;
+    const arrow    = isPos ? '\u25B2' : '\u25BC';   // ▲ / ▼
+    const sign     = isPos ? '+' : '-';
+
+    let yCursor = radius * 0.44;
+
+    // ---------- 1) % ACHIEVED ----------
+    if (GAUGE_TUNING.showAchieved) {
+        const achStr = `${percentageDisplay.toFixed(2)}% achieved`;
+        chartGroup.append('text')
+            .attr('y', yCursor)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .style('font-family', 'Arial, sans-serif')
+            .style('font-size', fitFontSize(achStr, radius * 1.4, radius * 0.125) * fontScale + 'px')
+            .style('font-weight', 'bold')
+            .style('fill', '#666')
+            .text(achStr)
+            .raise();
+        yCursor += radius * 0.21;
+    }
+
+    // ---------- 2) VARIANCE (⭐ सिर्फ़ Percentage mode में) ----------
+    const varianceAllowed =
+        GAUGE_TUNING.showVariance &&
+        targetKey && totalTarget > 0 &&
+        (!GAUGE_TUNING.varianceOnlyInPct || isPctMode);
+
+    if (varianceAllowed) {
+        const absStr = formatNumber(Math.abs(varianceAbs), false, false, true, CONFIG.decimalPlaces);
+        const pStr   = `${Math.abs(variancePct).toFixed(CONFIG.decimalPlaces)}%`;
+
+        let varStr;
+        if (isPctMode) {
+            varStr = `${arrow} ${sign}${pStr} vs Target  (${sign}${absStr})`;
+        } else if (GAUGE_TUNING.varianceMode === 'abs') {
+            varStr = `${arrow} ${sign}${absStr} vs Target`;
+        } else if (GAUGE_TUNING.varianceMode === 'pct') {
+            varStr = `${arrow} ${sign}${pStr} vs Target`;
+        } else {
+            varStr = `${arrow} ${sign}${absStr}  (${sign}${pStr})`;
+        }
+
+        chartGroup.append('text')
+            .attr('y', yCursor)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .style('font-family', 'Arial, sans-serif')
+            .style('font-size', fitFontSize(varStr, radius * 1.6, radius * 0.115) * fontScale + 'px')
+            .style('font-weight', '700')
+            .style('fill', varColor)
+            .text(varStr)
+            .raise();
+        yCursor += radius * 0.20;
+    }
+
+    // ---------- 3) TARGET ----------
     if (targetKey && totalTarget > 0) {
         let targetStr;
         if (isPctMode) {
@@ -350,16 +405,16 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
             targetStr = 'Target: ' + formatNumber(totalTarget, false, false, true, CONFIG.decimalPlaces);
         }
 
-        const targetText = chartGroup.append('text')
-            .attr('y', radius * 0.68)
+        chartGroup.append('text')
+            .attr('y', yCursor)
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .style('font-family', 'Arial, sans-serif')
-            .style('font-size', fitFontSize(targetStr, radius * 1.5, radius * 0.105) * fontScale + 'px')
+            .style('font-size', fitFontSize(targetStr, radius * 1.5, radius * 0.10) * fontScale + 'px')
             .style('font-weight', '400')
             .style('fill', '#999')
-            .text(targetStr);
-        targetText.raise();
+            .text(targetStr)
+            .raise();
     }
 
     const interactionElement = chartGroup.append('circle')
@@ -384,10 +439,9 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     content.style.position = 'relative';
 
-    // Global CSS Rule Injection  (id बदला है ताकि पुरानी cached CSS override हो)
-    if (!document.getElementById('gauge-global-styles-v2')) {
+    if (!document.getElementById('gauge-global-styles-v3')) {
         const style = document.createElement('style');
-        style.id = 'gauge-global-styles-v2';
+        style.id = 'gauge-global-styles-v3';
         style.innerHTML = `
             html, body, #content {
                 width: 100% !important;
