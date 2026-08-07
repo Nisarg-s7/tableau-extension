@@ -60,7 +60,7 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
 }
 
-// ✨ AUTO-FIT: calculates precise font size dynamically
+// ✨ AUTO-FIT: calculates precise font size dynamically to prevent overlap
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
     const approx = maxWidth / (len * 0.56);  
@@ -134,21 +134,23 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     height = Math.max(height, 100);
 
     const minDim = Math.min(width, height);
+    
+    // Safety padding
     const margin = {
-        top: minDim * 0.10,
+        top: minDim * 0.16, // Extra margin on top to make sure switcher has its clear space
         right: numberLength > 10 ? minDim * 0.18 : minDim * 0.12,
         bottom: minDim * 0.10,
         left: numberLength > 10 ? minDim * 0.18 : minDim * 0.12
     };
 
     const cx = width / 2;
-    const cy = height / 1.85; // Shift center slightly down to use vertical space better
+    const cy = height * 0.53; // Push center slightly down to leave full top-right clear
     
-    // 1️⃣ बदलाव: गेज रेडियस को बढ़ा दिया गया है (Divisors reduced to expand the circle)
-    const radiusDivisor = numberLength > 10 ? 2.6 : (numberLength > 7 ? 2.4 : 2.2);
+    // Expand circle to take full worksheet container space
+    const radiusDivisor = numberLength > 10 ? 2.5 : (numberLength > 7 ? 2.3 : 2.1);
     const radius = Math.min(
         (width - margin.left - margin.right) / radiusDivisor,
-        (height - margin.top - margin.bottom) / 1.85
+        (height - margin.top - margin.bottom) / 1.7
     );
 
     const svg = d3.create('svg')
@@ -259,7 +261,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // CENTER TEXT VALUE
+    // CENTER VALUE
     const centerStr = formatNumber(totalValue, false, false, false, CONFIG.decimalPlacesForAchievedValue);
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.22) 
@@ -329,7 +331,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 }
 
 
-// ✨ RENDER VIZ: Forces document/parent sizing constraints dynamically to fill the sheet
+// ✨ RENDER VIZ: Creates full stretch container area and floating apple capsule switcher
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -340,16 +342,45 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // 2️⃣ बदलाव: Tableau पैरेंट विंडो का पूरा एरिया घेरने के लिए CSS को ज़बरदस्ती सेट किया गया है
-    document.documentElement.style.height = '100%';
-    document.body.style.height = '100%';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    
-    content.style.position = 'relative';
-    content.style.width = '100%';
-    content.style.height = '100%';
-    content.style.minHeight = '100vh'; // Force fills viewport height inside iframe
+    // 1️⃣ बदलाव: पूरे Tableau Window को 100% पर स्ट्रेच करने के लिए CSS इंजेक्ट किया
+    if (!document.getElementById('gauge-global-styles')) {
+        const style = document.createElement('style');
+        style.id = 'gauge-global-styles';
+        style.innerHTML = `
+            html, body, #content {
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                background-color: white !important;
+            }
+            #gauge-controls-container {
+                position: absolute !important;
+                top: 15px !important;
+                right: 25px !important;    /* Floating extreme top-right */
+                z-index: 9999 !important;
+                display: flex !important;
+                background: #f1f5f9 !important;
+                padding: 4px !important;
+                border-radius: 30px !important;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+                border: 1px solid #e2e8f0 !important;
+                font-family: 'Segoe UI', -apple-system, Arial, sans-serif !important;
+                user-select: none !important;
+                cursor: pointer !important;
+            }
+            #chart-area {
+                width: 100% !important;
+                height: 100% !important; /* Takes full workspace */
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 1 !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
     let controls = document.getElementById('gauge-controls-container');
     let chartArea = document.getElementById('chart-area');
@@ -357,40 +388,17 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     if (!controls) {
         content.innerHTML = '';
 
-        // Floating Capsules bar on Top-Right Corner
+        // Floating Swticher капсула
         controls = document.createElement('div');
         controls.id = 'gauge-controls-container';
-        controls.style.cssText = `
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            background: #f1f5f9;
-            padding: 4px;
-            border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            border: 1px solid #e2e8f0;
-            font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
-            user-select: none;
-            cursor: pointer;
-        `;
         content.appendChild(controls);
 
-        // Chart SVG drawing container area
+        // Chart area taking up full viewport area
         chartArea = document.createElement('div');
         chartArea.id = 'chart-area';
-        chartArea.style.cssText = `
-            width: 100%;
-            height: calc(100% - 55px);
-            margin-top: 55px;          /* Push down only 55px to leave room for switcher */
-            position: relative;
-            overflow: hidden;
-        `;
         content.appendChild(chartArea);
     }
 
-    // Controls label styling
     controls.innerHTML = `
         <div id="btn-val-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
         <div id="btn-pct-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
@@ -416,7 +424,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     chartArea.innerHTML = '';
 
-    // Read full computed layout dimensions safely now
+    // Calculate actual pixel dimensions of the viewport
     const width = chartArea.offsetWidth || chartArea.clientWidth || window.innerWidth || 400;
     const height = chartArea.offsetHeight || chartArea.clientHeight || window.innerHeight || 300;
 
@@ -450,19 +458,17 @@ window.onload = function() {
         worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, update);
         worksheet.addEventListener(tableau.TableauEventType.FilterChanged, update);
 
+        // 2️⃣ बदलाव: रिसाइज लूप्स और क्रैश से बचने के लिए सीधा 'resize' इवेंट लिसनर का उपयोग किया
         let resizeTimeout;
-        const resizeObserver = new ResizeObserver(() => {
+        window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                const content = document.getElementById('content');
-                if (content && summaryData && encodingMap) {
-                    renderViz(summaryData, encodingMap, selectedMarks, styles);
+                const args = window.gaugeActiveArgs;
+                if (args) {
+                    renderViz(args.rawData, args.encodingMap, args.selectedMarksIds, args.styles);
                 }
             }, 150);
         });
-
-        const contentDiv = document.getElementById('content');
-        if (contentDiv) resizeObserver.observe(contentDiv);
 
         document.body.addEventListener('click', async (e) => {
             if (e.target.closest('#gauge-controls-container')) return;
