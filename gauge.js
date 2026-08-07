@@ -25,7 +25,7 @@ const CONFIG = {
     isPercentage: config.isPercentage || false
 };
 
-// Global mode state initialization (Value Mode is default)
+// Global mode state initialization
 window.currentGaugeMode = window.currentGaugeMode || "value";
 
 function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG.isPercentage, includeUnit = true, decimals = null) {
@@ -60,7 +60,7 @@ function formatNumber(value, useSuffix = CONFIG.useSuffix, isPercentage = CONFIG
     return (CONFIG.prefix || "") + formattedValue + (includeUnit ? (CONFIG.unit || "") : "");
 }
 
-// ✨ AUTO-FIT: Calculates precise font size dynamically to prevent overlap
+// ✨ AUTO-FIT: calculates precise font size dynamically
 function fitFontSize(text, maxWidth, baseSize, minSize = 8) {
     const len = String(text).length || 1;
     const approx = maxWidth / (len * 0.56);  
@@ -118,7 +118,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const isPctMode = (window.currentGaugeMode === "percentage");
 
-    // 1️⃣ SCALE: Percentage मोड में पैमाना 100% तक सीमित रहेगा
+    // SCALE: Percentage mode scale is locked to 100%
     if (isPctMode) {
         maxScale = 100; 
     } else {
@@ -166,7 +166,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const endAngle = Math.PI * 0.75;
     const totalRange = endAngle - startAngle;
 
-    // Needle position ratio
+    // Needle alignment angle
     let valueFraction;
     if (isPctMode) {
         const achievedPct = totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0;
@@ -260,7 +260,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // 2️⃣ CENTER ACTUAL VALUE: हमेशा बिना K/M के पूरे फॉर्मेट में रहेगा (दोनों मोड में)
+    // CENTER TEXT VALUE (Always full values in both views)
     const centerStr = formatNumber(totalValue, false, false, false, CONFIG.decimalPlacesForAchievedValue);
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.22) 
@@ -300,7 +300,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .text(pctStr);
     percentageText.raise();
 
-    // TARGET BOTTOM TEXT: प्रतिशत मोड में 'Target: 100.00%' दिखाएगा
+    // TARGET BOTTOM TEXT: Shows "Target: 100.00%" in percentage view
     if (targetKey && totalTarget > 0) {
         let targetStr;
         if (isPctMode) {
@@ -332,7 +332,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 }
 
 
-// ✨ RENDER VIZ: Creates the floating toggle UI beautifully
+// ✨ RENDER VIZ: Creates the floating switcher panel on the Top-Right Corner
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -343,18 +343,17 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // Ensure content container supports absolute floating elements
+    // Container must be relative for accurate floating controls placement
     content.style.position = 'relative';
 
-    // 3️⃣ NEW FLOATING INTERACTIVE SWITCHER PANEL (Apple Pill Design)
+    // 1️⃣ CHANGE: Floating Switcher repositioned to TOP-RIGHT side beautifully
     if (!document.getElementById('gauge-controls-container')) {
         const controls = document.createElement('div');
         controls.id = 'gauge-controls-container';
         controls.style.cssText = `
             position: absolute;
             top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
+            right: 20px;          /* 👈 Shifted to the extreme right side */
             z-index: 9999;
             display: flex;
             background: #f1f5f9;
@@ -368,12 +367,12 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
         `;
         
         controls.innerHTML = `
-            <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
-            <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
+            <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
+            <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
         `;
         content.appendChild(controls);
 
-        // Chart sub-area element creation
+        // Chart SVG drawing container area
         const chartArea = document.createElement('div');
         chartArea.id = 'chart-area';
         chartArea.style.cssText = `
@@ -384,7 +383,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
         `;
         content.appendChild(chartArea);
 
-        // Set up immediate trigger clicks (No Apply button needed anymore!)
+        // Instant click triggers (No latency)
         document.getElementById('btn-val-mode').addEventListener('click', () => {
             if (window.currentGaugeMode !== 'value') {
                 window.currentGaugeMode = 'value';
@@ -403,14 +402,14 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
         const valBtn = document.getElementById('btn-val-mode');
         const pctBtn = document.getElementById('btn-pct-mode');
         if (window.currentGaugeMode === 'percentage') {
-            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
-            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
+            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
+            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
         } else {
-            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
-            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11.5px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
+            valBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);";
+            pctBtn.style.cssText = "padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; color: #64748b;";
         }
         
-        // Instant re-render with new state
+        // Re-render chart instantly on switch
         const args = window.gaugeActiveArgs;
         renderViz(args.rawData, args.encodingMap, args.selectedMarksIds, args.styles);
     }
