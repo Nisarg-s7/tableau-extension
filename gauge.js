@@ -135,19 +135,20 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const minDim = Math.min(width, height);
     const margin = {
-        top: minDim * 0.12,
-        right: numberLength > 10 ? minDim * 0.20 : minDim * 0.15,
-        bottom: minDim * 0.12,
-        left: numberLength > 10 ? minDim * 0.20 : minDim * 0.15
+        top: minDim * 0.10,
+        right: numberLength > 10 ? minDim * 0.18 : minDim * 0.12,
+        bottom: minDim * 0.10,
+        left: numberLength > 10 ? minDim * 0.18 : minDim * 0.12
     };
 
     const cx = width / 2;
-    const cy = height / 2;
+    const cy = height / 1.85; // Shift center slightly down to use vertical space better
     
-    const radiusDivisor = numberLength > 10 ? 3.0 : (numberLength > 7 ? 2.8 : 2.6);
+    // 1️⃣ बदलाव: गेज रेडियस को बढ़ा दिया गया है (Divisors reduced to expand the circle)
+    const radiusDivisor = numberLength > 10 ? 2.6 : (numberLength > 7 ? 2.4 : 2.2);
     const radius = Math.min(
         (width - margin.left - margin.right) / radiusDivisor,
-        (height - margin.top - margin.bottom) / 2.15
+        (height - margin.top - margin.bottom) / 1.85
     );
 
     const svg = d3.create('svg')
@@ -322,13 +323,13 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
     const interactionElement = chartGroup.append('circle')
         .attr('r', radius)
         .attr('fill', 'transparent')
-        .style('pointer-events', 'none'); // Prevents click blocking
+        .style('pointer-events', 'none');
 
     return { viz: svg.node(), interactionElement, allTupleIds };
 }
 
 
-// ✨ RENDER VIZ: Creates the beautiful floating segmented bar on Top-Right Corner
+// ✨ RENDER VIZ: Forces document/parent sizing constraints dynamically to fill the sheet
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -339,24 +340,30 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // Explicitly enforce relative positioning on parent container
+    // 2️⃣ बदलाव: Tableau पैरेंट विंडो का पूरा एरिया घेरने के लिए CSS को ज़बरदस्ती सेट किया गया है
+    document.documentElement.style.height = '100%';
+    document.body.style.height = '100%';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    
     content.style.position = 'relative';
+    content.style.width = '100%';
+    content.style.height = '100%';
+    content.style.minHeight = '100vh'; // Force fills viewport height inside iframe
 
-    // 1️⃣ फिक्स: गेज एरिया के ऊपर का पूरा पुराना DOM साफ करके ताज़ा कंटेनर्स बनाना
     let controls = document.getElementById('gauge-controls-container');
     let chartArea = document.getElementById('chart-area');
 
     if (!controls) {
-        // Clear anything old if present
         content.innerHTML = '';
 
-        // Create elegant floating capsules bar on TOP-RIGHT
+        // Floating Capsules bar on Top-Right Corner
         controls = document.createElement('div');
         controls.id = 'gauge-controls-container';
         controls.style.cssText = `
             position: absolute;
             top: 15px;
-            right: 20px;          /* 👈 Absolute placement on the Top-Right Corner */
+            right: 20px;
             z-index: 9999;
             display: flex;
             background: #f1f5f9;
@@ -370,26 +377,25 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
         `;
         content.appendChild(controls);
 
-        // 2️⃣ फिक्स: चार्ट एरिया को 55px नीचे खिसकाया गया ताकि वे कभी ओवरलैप न हों
+        // Chart SVG drawing container area
         chartArea = document.createElement('div');
         chartArea.id = 'chart-area';
         chartArea.style.cssText = `
             width: 100%;
-            height: calc(100% - 55px); /* Restrict height precisely */
-            margin-top: 55px;          /* 👈 Push chart 55px down to leave header free */
+            height: calc(100% - 55px);
+            margin-top: 55px;          /* Push down only 55px to leave room for switcher */
             position: relative;
             overflow: hidden;
         `;
         content.appendChild(chartArea);
     }
 
-    // Refresh controls content to show correct selected active color
+    // Controls label styling
     controls.innerHTML = `
         <div id="btn-val-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
         <div id="btn-pct-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
     `;
 
-    // Setup direct trigger click handlers cleanly
     document.getElementById('btn-val-mode').onclick = () => {
         if (window.currentGaugeMode !== 'value') {
             window.currentGaugeMode = 'value';
@@ -410,8 +416,9 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     chartArea.innerHTML = '';
 
-    const width = chartArea.offsetWidth || chartArea.clientWidth || 400;
-    const height = chartArea.offsetHeight || chartArea.clientHeight || 300;
+    // Read full computed layout dimensions safely now
+    const width = chartArea.offsetWidth || chartArea.clientWidth || window.innerWidth || 400;
+    const height = chartArea.offsetHeight || chartArea.clientHeight || window.innerHeight || 300;
 
     const result = await GaugeChart(encodedData, encodingMap, width, height, selectedMarksIds, styles);
 
@@ -458,7 +465,6 @@ window.onload = function() {
         if (contentDiv) resizeObserver.observe(contentDiv);
 
         document.body.addEventListener('click', async (e) => {
-            // Prevent interference with switch controls click
             if (e.target.closest('#gauge-controls-container')) return;
 
             const data = d3.select(e.target).datum();
