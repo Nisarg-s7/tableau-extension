@@ -135,22 +135,21 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const minDim = Math.min(width, height);
     
-    // Safety padding
+    // Safety padding for full-screen layout
     const margin = {
-        top: minDim * 0.16, // Extra margin on top to make sure switcher has its clear space
-        right: numberLength > 10 ? minDim * 0.18 : minDim * 0.12,
-        bottom: minDim * 0.10,
-        left: numberLength > 10 ? minDim * 0.18 : minDim * 0.12
+        top: minDim * 0.10,
+        right: minDim * 0.08,
+        bottom: minDim * 0.08,
+        left: minDim * 0.08
     };
 
     const cx = width / 2;
-    const cy = height * 0.53; // Push center slightly down to leave full top-right clear
+    const cy = height * 0.55; // Push center slightly down to leave full top-right clear
     
-    // Expand circle to take full worksheet container space
-    const radiusDivisor = numberLength > 10 ? 2.5 : (numberLength > 7 ? 2.3 : 2.1);
+    // ✨ गेज को पूरी स्क्रीन पर विशाल (Huge) दिखाने के लिए रेडियस बढ़ाया गया है
     const radius = Math.min(
-        (width - margin.left - margin.right) / radiusDivisor,
-        (height - margin.top - margin.bottom) / 1.7
+        (width - margin.left - margin.right) / 2.2,
+        (height - margin.top - margin.bottom) / 1.6
     );
 
     const svg = d3.create('svg')
@@ -261,7 +260,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // CENTER VALUE
+    // CENTER TEXT VALUE
     const centerStr = formatNumber(totalValue, false, false, false, CONFIG.decimalPlacesForAchievedValue);
     const valueText = chartGroup.append('text')
         .attr('y', radius * 0.22) 
@@ -331,7 +330,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 }
 
 
-// ✨ RENDER VIZ: Creates full stretch container area and floating apple capsule switcher
+// ✨ RENDER VIZ: Re-stabilizes size constraints while preserving absolute Apple-style Top-Right switcher
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -342,7 +341,10 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // 1️⃣ बदलाव: पूरे Tableau Window को 100% पर स्ट्रेच करने के लिए CSS इंजेक्ट किया
+    // Enforce full-page view layout
+    content.style.position = 'relative';
+
+    // Global CSS Rule Injection for absolute rendering layout
     if (!document.getElementById('gauge-global-styles')) {
         const style = document.createElement('style');
         style.id = 'gauge-global-styles';
@@ -358,7 +360,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             #gauge-controls-container {
                 position: absolute !important;
                 top: 15px !important;
-                right: 25px !important;    /* Floating extreme top-right */
+                right: 25px !important;    /* Absolute floating placement on the Top-Right */
                 z-index: 9999 !important;
                 display: flex !important;
                 background: #f1f5f9 !important;
@@ -372,7 +374,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             }
             #chart-area {
                 width: 100% !important;
-                height: 100% !important; /* Takes full workspace */
+                height: 100% !important; /* Full worksheet display size */
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -388,20 +390,21 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     if (!controls) {
         content.innerHTML = '';
 
-        // Floating Swticher капсула
+        // Switcher Capsule
         controls = document.createElement('div');
         controls.id = 'gauge-controls-container';
         content.appendChild(controls);
 
-        // Chart area taking up full viewport area
+        // Chart area taking up full worksheet viewport area
         chartArea = document.createElement('div');
         chartArea.id = 'chart-area';
         content.appendChild(chartArea);
     }
 
+    // 1️⃣ बदलाव: बटनों को वापस परफेक्ट मूल आकार (Padding: 6px 18px, Font: 12px) में सेट कर दिया गया है
     controls.innerHTML = `
-        <div id="btn-val-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
-        <div id="btn-pct-mode" style="padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
+        <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
+        <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
     `;
 
     document.getElementById('btn-val-mode').onclick = () => {
@@ -424,7 +427,6 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     chartArea.innerHTML = '';
 
-    // Calculate actual pixel dimensions of the viewport
     const width = chartArea.offsetWidth || chartArea.clientWidth || window.innerWidth || 400;
     const height = chartArea.offsetHeight || chartArea.clientHeight || window.innerHeight || 300;
 
@@ -458,7 +460,6 @@ window.onload = function() {
         worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, update);
         worksheet.addEventListener(tableau.TableauEventType.FilterChanged, update);
 
-        // 2️⃣ बदलाव: रिसाइज लूप्स और क्रैश से बचने के लिए सीधा 'resize' इवेंट लिसनर का उपयोग किया
         let resizeTimeout;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
