@@ -30,7 +30,7 @@ const CONFIG = {
    ============================================================ */
 const GAUGE_TUNING = {
     /* ---- SIZE ---- */
-    sizeBoost:     1.18,   // ⭐ 1.00 = safe fit | 1.18 = बड़ा | 1.30 = और बड़ा
+    sizeBoost:     1.00,   // ⭐ 1.00 = safe fit | 1.18 = बड़ा | 1.30 = और बड़ा
     padPct:        0.008,  // किनारों का gap (कम = बड़ा chart)
     topReservePx:  34,     // toggle buttons के लिए ऊपर जगह (0 = और बड़ा)
     labelRadius:   1.15,   // tick labels की दूरी (कम = बड़ा)
