@@ -135,21 +135,22 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 
     const minDim = Math.min(width, height);
     
-    // Safety padding for full-screen layout
+    // 1️⃣ सुधार: नीचे लिखे नंबर्स के लिए एक्स्ट्रा बॉटम स्पेसिंग दी गई है (bottom: 0.15)
     const margin = {
-        top: minDim * 0.10,
-        right: minDim * 0.08,
-        bottom: minDim * 0.08,
-        left: minDim * 0.08
+        top: minDim * 0.12,
+        right: minDim * 0.12,
+        bottom: minDim * 0.15, 
+        left: minDim * 0.12
     };
 
+    // 2️⃣ सुधार: सेंटर (cy) को थोड़ा ऊपर खिसकाया ताकि नीचे की चीजें स्क्रीन से बाहर न जाएं
     const cx = width / 2;
-    const cy = height * 0.55; // Push center slightly down to leave full top-right clear
+    const cy = height * 0.47; 
     
-    // Expand circle to take full worksheet container space
+    // 3️⃣ सुधार: रेडियस को गणितीय रूप से 100% फिट और सुरक्षित कर दिया गया है
     const radius = Math.min(
-        (width - margin.left - margin.right) / 2.2,
-        (height - margin.top - margin.bottom) / 1.6
+        (width - margin.left - margin.right) / 2.4,
+        (height - margin.top - margin.bottom) / 2.15
     );
 
     const svg = d3.create('svg')
@@ -260,7 +261,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         .attr('r', Math.max(1.5, radius * 0.03))
         .attr('fill', '#fff');
 
-    // 1️⃣ सुधार: सेंटर वैल्यू अब चुने गए मोड के हिसाब से खुद को प्रदर्शित करेगी (Value ➡️ 423,387.00 | Percentage ➡️ 3.88%)
+    // CENTER TEXT VALUE (Perfect responsive sizing)
     const finalCenterValue = isPctMode ? (totalTarget > 0 ? (totalValue / totalTarget) * 100 : 0) : totalValue;
     const centerStr = formatNumber(finalCenterValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue);
     
@@ -283,10 +284,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
         const progress = Math.min(elapsed / animationDuration, 1);
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = finalCenterValue * easeProgress;
-        
-        // 2️⃣ सुधार: एनीमेशन में भी चुने गए मोड का फॉर्मेट सिंक होगा
         valueText.text(formatNumber(currentValue, false, isPctMode, false, CONFIG.decimalPlacesForAchievedValue));
-        
         if (progress < 1) requestAnimationFrame(animateValue);
     }
     requestAnimationFrame(animateValue);
@@ -335,7 +333,7 @@ async function GaugeChart(encodedData, encodingMap, width, height, selectedMarks
 }
 
 
-// ✨ RENDER VIZ: Re-stabilizes size constraints while preserving absolute Apple-style Top-Right switcher
+// ✨ RENDER VIZ: Handles full screen responsiveness layout beautifully
 async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     const encodedData = getEncodedData(rawData, encodingMap);
     const content = document.getElementById('content');
@@ -346,10 +344,9 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
 
     window.gaugeActiveArgs = { rawData, encodingMap, selectedMarksIds, styles };
 
-    // Enforce full-page view layout
     content.style.position = 'relative';
 
-    // Global CSS Rule Injection for absolute rendering layout
+    // Global CSS Rule Injection
     if (!document.getElementById('gauge-global-styles')) {
         const style = document.createElement('style');
         style.id = 'gauge-global-styles';
@@ -365,7 +362,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             #gauge-controls-container {
                 position: absolute !important;
                 top: 15px !important;
-                right: 25px !important;    /* Absolute floating placement on the Top-Right */
+                right: 25px !important;    
                 z-index: 9999 !important;
                 display: flex !important;
                 background: #f1f5f9 !important;
@@ -379,7 +376,7 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
             }
             #chart-area {
                 width: 100% !important;
-                height: 100% !important; /* Full worksheet display size */
+                height: 100% !important; 
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -395,18 +392,15 @@ async function renderViz(rawData, encodingMap, selectedMarksIds, styles) {
     if (!controls) {
         content.innerHTML = '';
 
-        // Switcher Capsule
         controls = document.createElement('div');
         controls.id = 'gauge-controls-container';
         content.appendChild(controls);
 
-        // Chart area taking up full worksheet viewport area
         chartArea = document.createElement('div');
         chartArea.id = 'chart-area';
         content.appendChild(chartArea);
     }
 
-    // Buttons styled with precise original dimensions (6px 18px, Font: 12px)
     controls.innerHTML = `
         <div id="btn-val-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode !== 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Raw Number</div>
         <div id="btn-pct-mode" style="padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; transition: all 0.25s ease; ${window.currentGaugeMode === 'percentage' ? 'background: #ffffff; color: #5B6FD8; box-shadow: 0 2px 6px rgba(0,0,0,0.08);' : 'color: #64748b;'}">Percentage (%)</div>
